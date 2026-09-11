@@ -562,9 +562,22 @@ function renderEvalView() {
 }
 
 function renderStarsReadonly(n) {
-  let s = "";
-  for (let i = 1; i <= 5; i++) s += `<span style="color:${i<=n?'var(--gold)':'#3a4a41'}">★</span>`;
-  return s;
+  return `<span class="star-frac-row">${starsFractionHtml(n || 0)}</span>`;
+}
+
+function starsFractionHtml(value) {
+  let html = "";
+  for (let i = 1; i <= 5; i++) {
+    const frac = Math.max(0, Math.min(1, value - (i - 1)));
+    html += `<span class="star-frac"><span class="bg">★</span><span class="fg" style="width:${frac * 100}%">★</span></span>`;
+  }
+  return html;
+}
+
+function computeAvgNote(crit) {
+  const vals = Object.values(crit || {}).filter((v) => v > 0);
+  if (!vals.length) return 0;
+  return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
 }
 
 /* ================= PLAYER MODAL ================= */
@@ -671,8 +684,11 @@ function openPlayerModal(pk) {
   document.getElementById("modalEquipe").value = p.equipe || "";
   refreshElimUI();
   renderCritStars(p);
-  renderGlobalStars(p);
   renderQuickStars(p);
+  // recompute the detailed note fresh from criteria each time (self-heals any stale stored value)
+  const avg = computeAvgNote(p.crit || {});
+  renderDetailedNote(avg);
+  if (avg !== (p.note || 0)) updatePlayer(currentModalPk, { note: avg });
   const lastEdit = document.getElementById("modalLastEdit");
   lastEdit.textContent = p.lastEditBy ? `Dernière modif : ${p.lastEditBy} — ${formatDate(p.lastEditAt)}` : "";
   document.getElementById("playerModal").classList.add("open");
@@ -691,19 +707,17 @@ function renderCritStars(p) {
     drawStars(starsEl, val, (newVal) => {
       if (!players[currentModalPk]) return;
       const newCrit = Object.assign({}, players[currentModalPk].crit || {}, { [key]: newVal });
-      players[currentModalPk] = Object.assign({}, players[currentModalPk], { crit: newCrit }); // optimistic local update
-      updatePlayer(currentModalPk, { crit: newCrit });
-      recomputeGlobalNote(newCrit);
+      const avg = computeAvgNote(newCrit);
+      players[currentModalPk] = Object.assign({}, players[currentModalPk], { crit: newCrit, note: avg }); // optimistic local update
+      renderDetailedNote(avg); // instant visual feedback, always recomputed (fixes the frozen-note bug)
+      updatePlayer(currentModalPk, { crit: newCrit, note: avg });
     });
   });
 }
 
-function renderGlobalStars(p) {
-  const el = document.getElementById("modalStars");
-  drawStars(el, p.note || 0, (newVal) => {
-    if (players[currentModalPk]) players[currentModalPk] = Object.assign({}, players[currentModalPk], { note: newVal });
-    updatePlayer(currentModalPk, { note: newVal });
-  });
+function renderDetailedNote(avg) {
+  document.getElementById("modalStars").innerHTML = starsFractionHtml(avg);
+  document.getElementById("modalNoteValue").textContent = avg > 0 ? `${avg.toFixed(1)} / 5` : "—";
 }
 
 function renderQuickStars(p) {
@@ -726,19 +740,6 @@ function drawStars(container, value, onSet) {
       onSet(newVal);
     });
     container.appendChild(s);
-  }
-}
-
-function recomputeGlobalNote(crit) {
-  const vals = Object.values(crit).filter((v) => v > 0);
-  if (!vals.length) return;
-  // Suggest an average but don't force-overwrite manual override silently; only nudge if note is 0
-  const p = players[currentModalPk];
-  if (!p.note) {
-    const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-    players[currentModalPk] = Object.assign({}, players[currentModalPk], { note: avg });
-    renderGlobalStars(players[currentModalPk]);
-    updatePlayer(currentModalPk, { note: avg });
   }
 }
 
