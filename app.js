@@ -530,7 +530,7 @@ function renderEvalView() {
   list.sort((a, b) => {
     if (sortBy === "nom") return a.nom.localeCompare(b.nom);
     if (sortBy === "rapide") return (b.evalRapide || 0) - (a.evalRapide || 0);
-    if (sortBy === "note") return (b.note || 0) - (a.note || 0);
+    if (sortBy === "note") return computeAvgNote(b.crit) - computeAvgNote(a.crit);
     if (sortBy === "poste") return (a.poste || "zzz").localeCompare(b.poste || "zzz");
     // numero
     if (a.numero != null && b.numero != null) return a.numero - b.numero;
@@ -550,7 +550,7 @@ function renderEvalView() {
       <td>${escapeHtml(p.poste || "—")}</td>
       <td>${p.joueClub ? escapeHtml(p.joueClub) + (p.niveauClub ? " ("+escapeHtml(p.niveauClub)+")" : "") : "—"}</td>
       <td>${renderStarsReadonly(p.evalRapide || 0)}</td>
-      <td>${renderStarsReadonly(p.note || 0)}</td>
+      <td>${renderStarsReadonly(computeAvgNote(p.crit))}</td>
       <td>${statusPill(p)}</td>
       <td><button class="btn small openModalBtn" data-pk="${p.pk}">Évaluer</button></td>
     `;
@@ -778,8 +778,8 @@ function renderTeamsView() {
   });
 
   const pool = eligible.filter((p) => !p.equipe).sort((a,b)=>{
-    const scoreA = a.note || a.evalRapide || 0;
-    const scoreB = b.note || b.evalRapide || 0;
+    const scoreA = computeAvgNote(a.crit) || a.evalRapide || 0;
+    const scoreB = computeAvgNote(b.crit) || b.evalRapide || 0;
     return scoreB - scoreA || a.nom.localeCompare(b.nom);
   });
   const poolList = document.getElementById("poolList");
@@ -787,7 +787,7 @@ function renderTeamsView() {
   pool.forEach((p) => {
     const chip = document.createElement("div");
     chip.className = "player-chip";
-    chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""} ${renderStarsReadonly(p.note || p.evalRapide || 0)}</span>
+    chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""} ${renderStarsReadonly(computeAvgNote(p.crit) || p.evalRapide || 0)}</span>
       <select data-pk="${p.pk}">
         <option value="">Non affecté</option>
         <option value="1">Éq.1</option>
@@ -863,6 +863,7 @@ function exportCsv() {
         const key = c.replace("crit_", "");
         return (p.crit && p.crit[key]) || "";
       }
+      if (c === "note") return computeAvgNote(p.crit) || "";
       let v = p[c];
       if (v == null) v = "";
       return String(v).replace(/;/g, ",").replace(/\n/g, " ");
