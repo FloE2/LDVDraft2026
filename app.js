@@ -85,7 +85,7 @@ function initFirebase(cfg, coachName) {
     return;
   }
   document.getElementById("setupView").style.display = "none";
-  document.getElementById("appRoot").style.display = "block";
+  document.getElementById("appRoot").style.display = "flex";
   document.getElementById("coachNameDisplay").textContent = coachName;
 
   buildGroupPickers();
