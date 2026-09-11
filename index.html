@@ -135,6 +135,10 @@ tr:hover td{ background: var(--panel-2); }
 .stars{ display:inline-flex; gap:2px; cursor:pointer; }
 .stars span{ font-size:1.1rem; color:#d7dade; }
 .stars span.on{ color: var(--gold); }
+.star-frac-row{ display:inline-flex; gap:2px; }
+.star-frac{ position:relative; display:inline-block; font-size:1.1rem; line-height:1; width:1.1rem; }
+.star-frac .bg{ color:#d7dade; }
+.star-frac .fg{ position:absolute; left:0; top:0; overflow:hidden; color:var(--gold); white-space:nowrap; }
 
 .crit-grid{ display:grid; grid-template-columns: 1fr; gap:10px; }
 @media(min-width:640px){ .crit-grid{ grid-template-columns: 1fr 1fr; } }
@@ -450,7 +454,10 @@ footer.app-footer{
       <div class="field-row">
         <div>
           <label>Note détaillée (moyenne des critères)</label>
-          <div class="stars" id="modalStars"></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="star-frac-row" id="modalStars"></div>
+            <span class="muted" id="modalNoteValue"></span>
+          </div>
         </div>
         <div>
           <label>Équipe pressentie</label>
