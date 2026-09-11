@@ -255,6 +255,10 @@ footer.app-footer{
   <div class="view" id="view-appel">
     <div class="card">
       <div class="group-picker" id="appelGroupPicker"></div>
+      <div class="flex-between" style="margin-bottom:12px;">
+        <span></span>
+        <button class="btn" id="addStudentBtn">+ Ajouter un étudiant</button>
+      </div>
       <div class="search-row">
         <input type="search" id="appelSearch" placeholder="Rechercher un étudiant...">
         <span class="muted" id="appelStats" style="align-self:center;"></span>
@@ -464,6 +468,47 @@ footer.app-footer{
       <button class="btn danger" id="resetPlayerBtn">🔄 Réinitialiser cette fiche</button>
       <button class="btn" id="validatePlayerBtn" style="flex:1; min-width:160px;">✓ Valider la fiche</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: ajouter un étudiant -->
+<div class="modal-backdrop" id="addStudentModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h2>Ajouter un étudiant</h2>
+      <button class="close" id="addStudentClose">×</button>
+    </div>
+    <div class="field-row" style="grid-template-columns:1fr;">
+      <div>
+        <label>Nom *</label>
+        <input type="text" id="newStudentNom" style="width:100%;">
+      </div>
+    </div>
+    <div class="field-row" style="grid-template-columns:1fr;">
+      <div>
+        <label>Prénom *</label>
+        <input type="text" id="newStudentPrenom" style="width:100%;">
+      </div>
+    </div>
+    <div class="field-row" style="grid-template-columns:1fr;">
+      <div>
+        <label>Formation (optionnel)</label>
+        <input type="text" id="newStudentFormation" style="width:100%;" placeholder="Ex: ESILV ANNEE 2">
+      </div>
+    </div>
+    <div class="field-row" style="grid-template-columns:1fr;">
+      <div>
+        <label>Groupe</label>
+        <select id="newStudentGroupe" style="width:100%;">
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+      </div>
+    </div>
+    <p id="addStudentError" class="muted" style="color:var(--red-out);"></p>
+    <button class="btn" id="confirmAddStudentBtn" style="width:100%;">Ajouter</button>
   </div>
 </div>
 
