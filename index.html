@@ -178,14 +178,14 @@ tr:hover td{ background: var(--panel-2); }
 .player-chip select{ font-size:0.75rem; padding:3px 5px; }
 .pool-list{ max-height:420px; overflow-y:auto; }
 
-.photo-box{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+.photo-box{ display:flex; flex-direction:column; gap:12px; }
 .photo-frame{
-  width:280px; max-width:100%; background:var(--panel-2); border:1px dashed var(--line); border-radius:8px;
-  display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:180px;
+  width:100%; max-width:640px; aspect-ratio: 4 / 3; background:var(--panel-2); border:1px dashed var(--line); border-radius:8px;
+  display:flex; align-items:center; justify-content:center; overflow:hidden; margin:0 auto;
 }
-.photo-frame img{ width:100%; display:block; }
-.photo-actions{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
-video#camPreview{ width:100%; border-radius:8px; display:none; background:#000; }
+.photo-frame img{ width:100%; height:100%; object-fit:contain; display:block; }
+.photo-actions{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+video#camPreview{ width:100%; max-width:640px; aspect-ratio:4/3; object-fit:cover; border-radius:8px; display:none; background:#000; margin:0 auto; }
 .numero-input{ width:50px !important; text-align:center; }
 
 .setup-box{ max-width:640px; margin:40px auto; flex:1; width:100%; }
@@ -277,20 +277,18 @@ footer.app-footer{
       <h3>Photo du groupe</h3>
       <div class="photo-box">
         <div class="photo-frame" id="photoFrame"><span class="muted">Aucune photo</span></div>
-        <div style="flex:1; min-width:200px;">
-          <video id="camPreview" autoplay playsinline></video>
-          <canvas id="camCanvas" style="display:none;"></canvas>
-          <div class="photo-actions">
-            <button class="btn" id="startCamBtn">📸 Prendre une photo</button>
-            <button class="btn ghost" id="snapBtn" style="display:none;">Capturer</button>
-            <button class="btn ghost" id="cancelCamBtn" style="display:none;">Annuler</button>
-            <label class="btn ghost" style="cursor:pointer;">Importer un fichier
-              <input type="file" accept="image/*" id="uploadPhotoInput" style="display:none;">
-            </label>
-            <button class="btn danger" id="deletePhotoBtn">🗑 Supprimer la photo</button>
-          </div>
-          <p class="muted" id="photoMeta"></p>
+        <video id="camPreview" autoplay playsinline></video>
+        <canvas id="camCanvas" style="display:none;"></canvas>
+        <div class="photo-actions">
+          <button class="btn" id="startCamBtn">📸 Prendre une photo</button>
+          <button class="btn ghost" id="snapBtn" style="display:none;">Capturer</button>
+          <button class="btn ghost" id="cancelCamBtn" style="display:none;">Annuler</button>
+          <label class="btn ghost" style="cursor:pointer;">Importer un fichier
+            <input type="file" accept="image/*" id="uploadPhotoInput" style="display:none;">
+          </label>
+          <button class="btn danger" id="deletePhotoBtn">🗑 Supprimer la photo</button>
         </div>
+        <p class="muted" id="photoMeta" style="text-align:center;"></p>
       </div>
       <hr class="sep">
       <h3>Numérotation (gauche → droite sur la photo)</h3>
