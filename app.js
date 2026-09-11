@@ -318,6 +318,16 @@ function attachPhotoHandlers() {
   document.getElementById("snapBtn").addEventListener("click", snapPhoto);
   document.getElementById("cancelCamBtn").addEventListener("click", stopCamera);
   document.getElementById("uploadPhotoInput").addEventListener("change", handleFileUpload);
+  document.getElementById("deletePhotoBtn").addEventListener("click", deleteGroupPhoto);
+}
+
+function deleteGroupPhoto() {
+  const g = currentGroup.photos;
+  if (!groupPhotos[g]) { showToast("Aucune photo à supprimer pour ce groupe"); return; }
+  if (!confirm(`Supprimer la photo du groupe ${g} ?`)) return;
+  db.collection("groupPhotos").doc(g).delete()
+    .then(() => showToast(`Photo du groupe ${g} supprimée`))
+    .catch((e) => showToast("Erreur : " + e.message));
 }
 
 async function startCamera() {
@@ -509,6 +519,33 @@ function attachModalHandlers() {
   document.getElementById("modalNiveauClub").addEventListener("change", (e) => saveModalField("niveauClub", e.target.value));
   document.getElementById("modalNotes").addEventListener("change", (e) => saveModalField("notes", e.target.value));
   document.getElementById("modalEquipe").addEventListener("change", (e) => saveModalField("equipe", e.target.value));
+  document.getElementById("resetPlayerBtn").addEventListener("click", resetCurrentPlayer);
+}
+
+function playerResetPatch(p) {
+  return {
+    present: false,
+    numero: null,
+    groupe: p.groupeOriginal || p.groupe,
+    statut: "actif",
+    poste: "",
+    joueClub: "",
+    niveauClub: "",
+    taille: null,
+    crit: {},
+    note: 0,
+    equipe: "",
+    notes: ""
+  };
+}
+
+function resetCurrentPlayer() {
+  const p = players[currentModalPk];
+  if (!p) return;
+  if (!confirm(`Réinitialiser complètement la fiche de ${p.nom} ${p.prenom} ? (statut, poste, club, taille, observables, note, équipe, groupe et numéro repartent à zéro)`)) return;
+  updatePlayer(currentModalPk, playerResetPatch(p));
+  showToast("Fiche réinitialisée");
+  closePlayerModal();
 }
 
 function onElimChange() {
@@ -571,7 +608,9 @@ function renderCritStars(p) {
     const key = starsEl.dataset.crit;
     const val = crit[key] || 0;
     drawStars(starsEl, val, (newVal) => {
+      if (!players[currentModalPk]) return;
       const newCrit = Object.assign({}, players[currentModalPk].crit || {}, { [key]: newVal });
+      players[currentModalPk] = Object.assign({}, players[currentModalPk], { crit: newCrit }); // optimistic local update
       updatePlayer(currentModalPk, { crit: newCrit });
       recomputeGlobalNote(newCrit);
     });
@@ -581,6 +620,7 @@ function renderCritStars(p) {
 function renderGlobalStars(p) {
   const el = document.getElementById("modalStars");
   drawStars(el, p.note || 0, (newVal) => {
+    if (players[currentModalPk]) players[currentModalPk] = Object.assign({}, players[currentModalPk], { note: newVal });
     updatePlayer(currentModalPk, { note: newVal });
   });
 }
@@ -591,7 +631,11 @@ function drawStars(container, value, onSet) {
     const s = document.createElement("span");
     s.textContent = "★";
     if (i <= value) s.classList.add("on");
-    s.addEventListener("click", () => onSet(i === value ? 0 : i));
+    s.addEventListener("click", () => {
+      const newVal = i === value ? 0 : i;
+      drawStars(container, newVal, onSet); // redraw immediately, no waiting on network
+      onSet(newVal);
+    });
     container.appendChild(s);
   }
 }
@@ -603,6 +647,8 @@ function recomputeGlobalNote(crit) {
   const p = players[currentModalPk];
   if (!p.note) {
     const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+    players[currentModalPk] = Object.assign({}, players[currentModalPk], { note: avg });
+    renderGlobalStars(players[currentModalPk]);
     updatePlayer(currentModalPk, { note: avg });
   }
 }
@@ -668,6 +714,48 @@ function renderTeamsView() {
 
 function attachExportHandlers() {
   document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
+  document.getElementById("resetAllBtn").addEventListener("click", resetAllPlayers);
+}
+
+async function resetAllPlayers() {
+  const status = document.getElementById("resetAllStatus");
+  const all = Object.values(players);
+  if (!all.length) { status.textContent = "Aucun étudiant à réinitialiser."; return; }
+  const sure = confirm(
+    `Réinitialiser TOUTES les données de sélection pour ${all.length} étudiants ?\n` +
+    `(appel, groupes déplacés, photos, numéros, poste, club, taille, observables, notes, équipes)\n` +
+    `La liste des étudiants importés sera conservée. Cette action est irréversible.`
+  );
+  if (!sure) return;
+  const sure2 = confirm("Dernière confirmation : vraiment tout réinitialiser ?");
+  if (!sure2) return;
+
+  status.textContent = "Réinitialisation en cours...";
+  try {
+    // reset every player doc
+    const batches = [];
+    let batch = db.batch();
+    let count = 0;
+    all.forEach((p) => {
+      const ref = db.collection("players").doc(String(p.pk));
+      batch.set(ref, playerResetPatch(p), { merge: true });
+      count++;
+      if (count % 400 === 0) { batches.push(batch); batch = db.batch(); }
+    });
+    batches.push(batch);
+    for (const b of batches) await b.commit();
+
+    // delete all group photos
+    const photoSnap = await db.collection("groupPhotos").get();
+    const delBatch = db.batch();
+    photoSnap.forEach((doc) => delBatch.delete(doc.ref));
+    if (!photoSnap.empty) await delBatch.commit();
+
+    status.textContent = `Terminé : ${all.length} fiche(s) réinitialisée(s), photos supprimées.`;
+    showToast("Toutes les données ont été réinitialisées");
+  } catch (e) {
+    status.textContent = "Erreur : " + e.message;
+  }
 }
 
 function exportCsv() {
