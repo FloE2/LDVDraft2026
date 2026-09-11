@@ -550,6 +550,10 @@ function attachModalHandlers() {
   document.getElementById("modalEquipe").addEventListener("change", (e) => saveModalField("equipe", e.target.value));
   document.getElementById("resetPlayerBtn").addEventListener("click", resetCurrentPlayer);
   document.getElementById("addCriterionBtn").addEventListener("click", addCustomCriterion);
+  document.getElementById("validatePlayerBtn").addEventListener("click", () => {
+    showToast("Fiche validée et enregistrée");
+    closePlayerModal();
+  });
 }
 
 function playerResetPatch(p) {
