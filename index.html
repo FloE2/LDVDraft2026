@@ -287,6 +287,7 @@ footer.app-footer{
             <label class="btn ghost" style="cursor:pointer;">Importer un fichier
               <input type="file" accept="image/*" id="uploadPhotoInput" style="display:none;">
             </label>
+            <button class="btn danger" id="deletePhotoBtn">🗑 Supprimer la photo</button>
           </div>
           <p class="muted" id="photoMeta"></p>
         </div>
@@ -353,6 +354,11 @@ footer.app-footer{
       <p class="muted">À utiliser une seule fois, uniquement si la base Firestore est vide.</p>
       <button class="btn ghost" id="seedBtn">Importer les 71 étudiants du fichier FFSU</button>
       <p id="seedStatus" class="muted"></p>
+      <hr class="sep">
+      <h3>Remettre à zéro toutes les évaluations</h3>
+      <p class="muted">Efface l'appel, les groupes personnalisés, les photos, la numérotation, le poste, le club, la taille, les observables, les notes et les équipes — pour <b>tous les étudiants</b>. La liste des étudiants importés reste intacte, pas besoin de la réimporter.</p>
+      <button class="btn danger" id="resetAllBtn">Tout réinitialiser (garder les étudiants)</button>
+      <p id="resetAllStatus" class="muted"></p>
     </div>
   </div>
 
@@ -444,6 +450,8 @@ footer.app-footer{
       </div>
     </div>
     <p class="muted" id="modalLastEdit" style="margin-top:10px;"></p>
+    <hr class="sep">
+    <button class="btn danger" id="resetPlayerBtn">🔄 Réinitialiser cette fiche</button>
   </div>
 </div>
 
