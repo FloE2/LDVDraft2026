@@ -165,6 +165,7 @@ document.getElementById("seedBtn").addEventListener("click", async () => {
       taille: null,
       crit: {},
       note: 0,
+      evalRapide: 0,
       equipe: "",
       notes: "",
       lastEditBy: coachName(),
@@ -457,6 +458,7 @@ function renderEvalView() {
   if (q) list = list.filter((p) => (p.nom + " " + p.prenom).toLowerCase().includes(q));
   list.sort((a, b) => {
     if (sortBy === "nom") return a.nom.localeCompare(b.nom);
+    if (sortBy === "rapide") return (b.evalRapide || 0) - (a.evalRapide || 0);
     if (sortBy === "note") return (b.note || 0) - (a.note || 0);
     if (sortBy === "poste") return (a.poste || "zzz").localeCompare(b.poste || "zzz");
     // numero
@@ -476,6 +478,7 @@ function renderEvalView() {
       <td class="name">${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}</td>
       <td>${escapeHtml(p.poste || "—")}</td>
       <td>${p.joueClub ? escapeHtml(p.joueClub) + (p.niveauClub ? " ("+escapeHtml(p.niveauClub)+")" : "") : "—"}</td>
+      <td>${renderStarsReadonly(p.evalRapide || 0)}</td>
       <td>${renderStarsReadonly(p.note || 0)}</td>
       <td>${statusPill(p)}</td>
       <td><button class="btn small openModalBtn" data-pk="${p.pk}">Évaluer</button></td>
@@ -534,6 +537,7 @@ function playerResetPatch(p) {
     taille: null,
     crit: {},
     note: 0,
+    evalRapide: 0,
     equipe: "",
     notes: ""
   };
@@ -592,6 +596,7 @@ function openPlayerModal(pk) {
   refreshElimUI();
   renderCritStars(p);
   renderGlobalStars(p);
+  renderQuickStars(p);
   const lastEdit = document.getElementById("modalLastEdit");
   lastEdit.textContent = p.lastEditBy ? `Dernière modif : ${p.lastEditBy} — ${formatDate(p.lastEditAt)}` : "";
   document.getElementById("playerModal").classList.add("open");
@@ -622,6 +627,14 @@ function renderGlobalStars(p) {
   drawStars(el, p.note || 0, (newVal) => {
     if (players[currentModalPk]) players[currentModalPk] = Object.assign({}, players[currentModalPk], { note: newVal });
     updatePlayer(currentModalPk, { note: newVal });
+  });
+}
+
+function renderQuickStars(p) {
+  const el = document.getElementById("modalQuickStars");
+  drawStars(el, p.evalRapide || 0, (newVal) => {
+    if (players[currentModalPk]) players[currentModalPk] = Object.assign({}, players[currentModalPk], { evalRapide: newVal });
+    updatePlayer(currentModalPk, { evalRapide: newVal });
   });
 }
 
@@ -687,13 +700,17 @@ function renderTeamsView() {
     sel.addEventListener("change", (e) => updatePlayer(e.target.dataset.pk, { equipe: e.target.value }));
   });
 
-  const pool = eligible.filter((p) => !p.equipe).sort((a,b)=>(b.note||0)-(a.note||0) || a.nom.localeCompare(b.nom));
+  const pool = eligible.filter((p) => !p.equipe).sort((a,b)=>{
+    const scoreA = a.note || a.evalRapide || 0;
+    const scoreB = b.note || b.evalRapide || 0;
+    return scoreB - scoreA || a.nom.localeCompare(b.nom);
+  });
   const poolList = document.getElementById("poolList");
   poolList.innerHTML = "";
   pool.forEach((p) => {
     const chip = document.createElement("div");
     chip.className = "player-chip";
-    chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""} ${renderStarsReadonly(p.note||0)}</span>
+    chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""} ${renderStarsReadonly(p.note || p.evalRapide || 0)}</span>
       <select data-pk="${p.pk}">
         <option value="">Non affecté</option>
         <option value="1">Éq.1</option>
@@ -760,7 +777,7 @@ async function resetAllPlayers() {
 
 function exportCsv() {
   const cols = ["pk","nom","prenom","formation","groupeOriginal","groupe","numero","statut",
-    "poste","joueClub","niveauClub","taille","note","equipe","notes",
+    "poste","joueClub","niveauClub","taille","evalRapide","note","equipe","notes",
     ...CRITERES.map(c => "crit_" + c[0]), "lastEditBy","lastEditAt"];
   const rows = [cols.join(";")];
   Object.values(players).sort((a,b)=>a.nom.localeCompare(b.nom)).forEach((p) => {
