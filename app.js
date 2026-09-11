@@ -279,6 +279,51 @@ function updateGroupCounts() {
 
 function attachAppelHandlers() {
   document.getElementById("appelSearch").addEventListener("input", renderAppelView);
+  document.getElementById("addStudentBtn").addEventListener("click", openAddStudentModal);
+  document.getElementById("addStudentClose").addEventListener("click", closeAddStudentModal);
+  document.getElementById("addStudentModal").addEventListener("click", (e) => {
+    if (e.target.id === "addStudentModal") closeAddStudentModal();
+  });
+  document.getElementById("confirmAddStudentBtn").addEventListener("click", confirmAddStudent);
+}
+
+function openAddStudentModal() {
+  document.getElementById("newStudentNom").value = "";
+  document.getElementById("newStudentPrenom").value = "";
+  document.getElementById("newStudentFormation").value = "";
+  document.getElementById("newStudentGroupe").value = currentGroup.appel;
+  document.getElementById("addStudentError").textContent = "";
+  document.getElementById("addStudentModal").classList.add("open");
+}
+
+function closeAddStudentModal() {
+  document.getElementById("addStudentModal").classList.remove("open");
+}
+
+function confirmAddStudent() {
+  const nom = document.getElementById("newStudentNom").value.trim().toUpperCase();
+  const prenom = document.getElementById("newStudentPrenom").value.trim();
+  const formation = document.getElementById("newStudentFormation").value.trim();
+  const groupe = document.getElementById("newStudentGroupe").value;
+  const err = document.getElementById("addStudentError");
+  if (!nom || !prenom) { err.textContent = "Le nom et le prénom sont obligatoires."; return; }
+
+  const pk = "manuel_" + Date.now();
+  const patch = {
+    pk, nom, prenom, formation: formation || "(ajouté manuellement)",
+    email: "", groupeOriginal: groupe, groupe, creneau: "", lieu: "",
+    present: true, numero: null, statut: "actif",
+    poste: "", joueClub: "", niveauClub: "", taille: null,
+    crit: {}, note: 0, evalRapide: 0, equipe: "", notes: "",
+    manuallyAdded: true,
+    lastEditBy: coachName(), lastEditAt: new Date().toISOString()
+  };
+  db.collection("players").doc(pk).set(patch)
+    .then(() => {
+      showToast(`${nom} ${prenom} ajouté au groupe ${groupe}`);
+      closeAddStudentModal();
+    })
+    .catch((e) => { err.textContent = "Erreur : " + e.message; });
 }
 
 function statusPill(p) {
