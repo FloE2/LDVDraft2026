@@ -14,15 +14,9 @@ const GROUP_LABELS = {
   D: "D — 17/09 14h15-15h45 (Colombes)"
 };
 const CRITERES = [
-  ["tir", "Tir extérieur"],
-  ["dribble", "Dribble / main faible"],
-  ["finition", "Finition au cercle"],
-  ["passe", "Passe / vision de jeu"],
-  ["defense", "Défense individuelle"],
-  ["rebond", "Rebond"],
+  ["niveauTechnique", "Niveau technique"],
   ["lecture", "Lecture de jeu"],
   ["communication", "Communication"],
-  ["discipline", "Discipline défensive"],
   ["motivation", "Motivation"],
   ["esprit", "Esprit d'équipe"],
   ["ecoute", "Écoute des consignes"],
