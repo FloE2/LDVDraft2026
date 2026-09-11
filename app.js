@@ -13,15 +13,27 @@ const GROUP_LABELS = {
   C: "C — 17/09 13h-14h15 (Colombes)",
   D: "D — 17/09 14h15-15h45 (Colombes)"
 };
-const CRITERES = [
+const BASE_CRITERES = [
   ["niveauTechnique", "Niveau technique"],
   ["lecture", "Lecture de jeu"],
   ["communication", "Communication"],
-  ["motivation", "Motivation"],
   ["esprit", "Esprit d'équipe"],
   ["ecoute", "Écoute des consignes"],
   ["combativite", "Combativité"]
 ];
+let customCriteria = []; // [[key,label], ...] added on the fly, synced via Firestore
+
+function getAllCriteria() { return BASE_CRITERES.concat(customCriteria); }
+
+function slugify(s) {
+  let key = s.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!key) key = "critere_" + Date.now();
+  const existingKeys = getAllCriteria().map((c) => c[0]);
+  let finalKey = key, i = 2;
+  while (existingKeys.includes(finalKey)) { finalKey = key + "_" + i; i++; }
+  return finalKey;
+}
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDz4y8IsgYGGyC9EgzIa_E5Sbv_Ifyi2KQ",
@@ -93,6 +105,7 @@ function initFirebase(cfg, coachName) {
 
   listenPlayers();
   listenGroupPhotos();
+  listenCustomCriteria();
 }
 
 /* ---------------- Firestore listeners ---------------- */
@@ -114,6 +127,25 @@ function listenGroupPhotos() {
     snap.forEach((doc) => { groupPhotos[doc.id] = doc.data(); });
     if (document.getElementById("view-photos").classList.contains("active")) renderPhotosView();
   });
+}
+
+function listenCustomCriteria() {
+  db.collection("meta").doc("customCriteria").onSnapshot((doc) => {
+    customCriteria = (doc.exists && doc.data().list) || [];
+    buildCritGrid();
+    if (currentModalPk && players[currentModalPk]) renderCritStars(players[currentModalPk]);
+  });
+}
+
+function addCustomCriterion() {
+  const label = prompt("Nom du nouveau critère à évaluer :");
+  if (!label || !label.trim()) return;
+  const key = slugify(label.trim());
+  db.collection("meta").doc("customCriteria").set({
+    list: firebase.firestore.FieldValue.arrayUnion({ key, label: label.trim() })
+  }, { merge: true })
+    .then(() => showToast(`Critère "${label.trim()}" ajouté pour tout le monde`))
+    .catch((e) => showToast("Erreur : " + e.message));
 }
 
 function coachName() { return loadLocal("ffsu_coachName") || "?"; }
@@ -495,10 +527,10 @@ function renderStarsReadonly(n) {
 function buildCritGrid() {
   const grid = document.getElementById("critGrid");
   grid.innerHTML = "";
-  CRITERES.forEach(([key, label]) => {
+  getAllCriteria().forEach(([key, label]) => {
     const row = document.createElement("div");
     row.className = "crit-item";
-    row.innerHTML = `<span class="lbl">${label}</span><span class="stars" data-crit="${key}"></span>`;
+    row.innerHTML = `<span class="lbl">${escapeHtml(label)}</span><span class="stars" data-crit="${key}"></span>`;
     grid.appendChild(row);
   });
 }
@@ -517,6 +549,7 @@ function attachModalHandlers() {
   document.getElementById("modalNotes").addEventListener("change", (e) => saveModalField("notes", e.target.value));
   document.getElementById("modalEquipe").addEventListener("change", (e) => saveModalField("equipe", e.target.value));
   document.getElementById("resetPlayerBtn").addEventListener("click", resetCurrentPlayer);
+  document.getElementById("addCriterionBtn").addEventListener("click", addCustomCriterion);
 }
 
 function playerResetPatch(p) {
@@ -772,7 +805,7 @@ async function resetAllPlayers() {
 function exportCsv() {
   const cols = ["pk","nom","prenom","formation","groupeOriginal","groupe","numero","statut",
     "poste","joueClub","niveauClub","taille","evalRapide","note","equipe","notes",
-    ...CRITERES.map(c => "crit_" + c[0]), "lastEditBy","lastEditAt"];
+    ...getAllCriteria().map(c => "crit_" + c[0]), "lastEditBy","lastEditAt"];
   const rows = [cols.join(";")];
   Object.values(players).sort((a,b)=>a.nom.localeCompare(b.nom)).forEach((p) => {
     const row = cols.map((c) => {
