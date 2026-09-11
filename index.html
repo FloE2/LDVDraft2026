@@ -211,15 +211,12 @@ hr.sep{ border:none; border-top:1px solid var(--court-line); margin:14px 0; }
 <!-- ===================== SETUP VIEW (Firebase config) ===================== -->
 <div id="setupView" class="setup-box" style="display:none; padding:0 16px;">
   <div class="card">
-    <h2>🏀 Configuration — Sélection Basket FFSU</h2>
-    <div class="badge-info">Cette configuration se fait <b>une seule fois par appareil</b>. Les deux entraîneurs doivent utiliser le même projet Firebase pour voir les mêmes données en direct.</div>
-    <h3>1. Votre nom (entraîneur)</h3>
+    <h2>🏀 Sélection Basket FFSU</h2>
+    <div class="badge-info">Le projet Firebase est déjà configuré dans l'application. Indiquez simplement votre nom pour commencer — vous et votre collègue verrez les mêmes données en direct.</div>
+    <h3>Votre nom (entraîneur)</h3>
     <input type="text" id="coachNameInput" placeholder="Ex: Julien" style="width:100%; margin-bottom:14px;">
-    <h3>2. Configuration Firebase</h3>
-    <p class="muted">Collez ici l'objet <span class="mono">firebaseConfig</span> fourni par la console Firebase (Paramètres du projet → Vos applications → SDK).</p>
-    <textarea id="fbConfigInput" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "...", "storageBucket": "...", "messagingSenderId": "...", "appId": "..."}' style="min-height:120px; width:100%;"></textarea>
     <div style="margin-top:12px;">
-      <button class="btn" id="saveConfigBtn">Enregistrer et se connecter</button>
+      <button class="btn" id="saveConfigBtn">Commencer</button>
     </div>
     <p id="setupError" class="muted" style="color:var(--red-out);"></p>
   </div>

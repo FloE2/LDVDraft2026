@@ -3,13 +3,13 @@
 Application web à 2 entraîneurs, synchronisée en direct via Firebase.
 71 étudiants du fichier FFSU sont déjà intégrés (groupes A/B/C/D).
 
-## 1. Créer le projet Firebase (5 min, gratuit)
+## 1. Projet Firebase
 
-1. Allez sur https://console.firebase.google.com → **Ajouter un projet** → donnez-lui un nom (ex: `ffsu-basket`) → suivez les étapes (vous pouvez désactiver Google Analytics).
-2. Une fois le projet créé, dans le menu de gauche : **Créer une base de données** sous **Firestore Database**.
-   - Choisissez une région proche (ex: `eur3 (europe-west)`).
-   - Démarrez en **mode production**.
-3. Allez dans **Règles** (onglet en haut de Firestore) et remplacez le contenu par :
+Le projet Firebase (`ldvdraft2026`) est déjà créé et sa configuration est intégrée directement dans `app.js` — rien à copier-coller. Il reste une vérification à faire une fois :
+
+1. Allez sur https://console.firebase.google.com → ouvrez le projet `ldvdraft2026`.
+2. Dans le menu de gauche, vérifiez que **Firestore Database** est bien créée (sinon cliquez **Créer une base de données**, région proche type `eur3 (europe-west)`, mode production).
+3. Onglet **Règles** de Firestore → remplacez le contenu par :
    ```
    rules_version = '2';
    service cloud.firestore {
@@ -21,19 +21,7 @@ Application web à 2 entraîneurs, synchronisée en direct via Firebase.
    }
    ```
    Cliquez **Publier**.
-   ⚠️ Ces règles ouvrent l'accès à quiconque a le lien de l'appli — largement suffisant pour un usage ponctuel de sélection entre vous deux, mais ne partagez pas l'URL publiquement. (On peut restreindre avec un mot de passe/authentification si besoin, dites-le moi.)
-4. Dans **Paramètres du projet** (roue crantée, en haut à gauche) → onglet **Général** → section **Vos applications** → cliquez l'icône `</>` (Web) → donnez un nom → **Enregistrer l'application**.
-5. Copiez l'objet `firebaseConfig` qui s'affiche, il ressemble à :
-   ```json
-   {
-     "apiKey": "AIza...",
-     "authDomain": "ffsu-basket.firebaseapp.com",
-     "projectId": "ffsu-basket",
-     "storageBucket": "ffsu-basket.appspot.com",
-     "messagingSenderId": "123456789",
-     "appId": "1:123456789:web:abcdef"
-   }
-   ```
+   ⚠️ Ces règles ouvrent l'accès en lecture/écriture à quiconque a le lien de l'appli — largement suffisant pour un usage ponctuel entre vous deux, mais ne partagez pas l'URL publiquement. (Je peux ajouter une authentification si besoin.)
 
 ## 2. Mettre l'application en ligne (GitHub Pages)
 
@@ -45,9 +33,9 @@ Application web à 2 entraîneurs, synchronisée en direct via Firebase.
 ## 3. Premier lancement
 
 1. Ouvrez le lien sur votre téléphone/tablette/ordinateur.
-2. Entrez votre **nom** et collez le **firebaseConfig** copié à l'étape 1.5 → **Enregistrer et se connecter**.
+2. Entrez votre **nom** → **Commencer**.
 3. Allez dans l'onglet **Export** → cliquez **Importer les 71 étudiants du fichier FFSU** (une seule fois, par un seul des deux coachs).
-4. Votre collègue fait la même chose que le point 2 sur son propre appareil (même config Firebase) → il/elle voit instantanément les mêmes données.
+4. Votre collègue ouvre le même lien sur son propre appareil, entre son nom → il/elle voit instantanément les mêmes données.
 
 ## Utilisation le jour J
 

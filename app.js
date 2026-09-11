@@ -29,6 +29,15 @@ const CRITERES = [
   ["combativite", "Combativité"]
 ];
 
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDz4y8IsgYGGyC9EgzIa_E5Sbv_Ifyi2KQ",
+  authDomain: "ldvdraft2026.firebaseapp.com",
+  projectId: "ldvdraft2026",
+  storageBucket: "ldvdraft2026.firebasestorage.app",
+  messagingSenderId: "402954876954",
+  appId: "1:402954876954:web:eaf0958197d0bb7e59f9a3"
+};
+
 let db = null;
 let players = {};       // pk -> player doc data
 let groupPhotos = {};   // group -> {photoBase64, updatedAt, updatedBy}
@@ -42,33 +51,27 @@ function loadLocal(key) { try { return JSON.parse(localStorage.getItem(key)); } 
 function saveLocal(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 function boot() {
-  const cfg = loadLocal("ffsu_fbConfig");
   const coach = loadLocal("ffsu_coachName");
-  if (!cfg || !coach) {
+  if (!coach) {
     document.getElementById("setupView").style.display = "block";
     document.getElementById("appRoot").style.display = "none";
     return;
   }
-  initFirebase(cfg, coach);
+  initFirebase(FIREBASE_CONFIG, coach);
 }
 
 document.getElementById("saveConfigBtn").addEventListener("click", () => {
   const name = document.getElementById("coachNameInput").value.trim();
-  const raw = document.getElementById("fbConfigInput").value.trim();
   const err = document.getElementById("setupError");
   err.textContent = "";
   if (!name) { err.textContent = "Merci d'indiquer votre nom."; return; }
-  let cfg;
-  try { cfg = JSON.parse(raw); }
-  catch (e) { err.textContent = "Le JSON de configuration Firebase est invalide."; return; }
-  if (!cfg.projectId || !cfg.apiKey) { err.textContent = "Configuration incomplète (apiKey / projectId manquants)."; return; }
-  saveLocal("ffsu_fbConfig", cfg);
   saveLocal("ffsu_coachName", name);
-  initFirebase(cfg, name);
+  initFirebase(FIREBASE_CONFIG, name);
 });
 
 document.getElementById("resetConfigBtn").addEventListener("click", () => {
-  if (confirm("Revenir à l'écran de configuration ? (les données Firestore ne seront pas supprimées)")) {
+  if (confirm("Changer de nom d'entraîneur ? (les données Firestore ne seront pas supprimées)")) {
+    saveLocal("ffsu_coachName", null);
     location.reload();
   }
 });
@@ -79,8 +82,6 @@ function initFirebase(cfg, coachName) {
     db = firebase.firestore();
   } catch (e) {
     alert("Erreur d'initialisation Firebase : " + e.message);
-    saveLocal("ffsu_fbConfig", null);
-    location.reload();
     return;
   }
   document.getElementById("setupView").style.display = "none";
