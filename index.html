@@ -311,14 +311,15 @@ footer.app-footer{
         <select id="evalSortSelect">
           <option value="numero">Trier par N° photo</option>
           <option value="nom">Trier par nom</option>
-          <option value="note">Trier par note</option>
+          <option value="rapide">Trier par éval. rapide</option>
+          <option value="note">Trier par note détaillée</option>
           <option value="poste">Trier par poste</option>
         </select>
       </div>
       <div style="overflow-x:auto;">
         <table>
           <thead><tr>
-            <th></th><th>Nom</th><th>Poste</th><th>Club</th><th>Note</th><th>Statut</th><th></th>
+            <th></th><th>Nom</th><th>Poste</th><th>Club</th><th>Éval. rapide</th><th>Note détaillée</th><th>Statut</th><th></th>
           </tr></thead>
           <tbody id="evalTableBody"></tbody>
         </table>
@@ -380,6 +381,16 @@ footer.app-footer{
       <label id="elimEspritLabel"><input type="checkbox" id="elimEspritChk"> Mauvais état d'esprit → éliminé</label>
     </div>
 
+    <div class="card" style="background:var(--panel-2); margin:14px 0;">
+      <div class="flex-between">
+        <div>
+          <h3 style="margin-bottom:2px;">⭐ Évaluation rapide</h3>
+          <p class="muted" style="margin:0;">À utiliser seule si vous n'avez pas le temps de remplir tous les critères ci-dessous.</p>
+        </div>
+        <div class="stars" id="modalQuickStars" style="font-size:1.5rem;"></div>
+      </div>
+    </div>
+
     <div id="modalFullForm">
       <div class="field-row">
         <div>
@@ -433,7 +444,7 @@ footer.app-footer{
 
       <div class="field-row">
         <div>
-          <label>Note globale</label>
+          <label>Note détaillée (moyenne des critères)</label>
           <div class="stars" id="modalStars"></div>
         </div>
         <div>
