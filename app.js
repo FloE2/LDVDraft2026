@@ -81,6 +81,14 @@ document.getElementById("resetConfigBtn").addEventListener("click", () => {
   }
 });
 
+document.getElementById("photoLightboxClose").addEventListener("click", closeLightbox);
+document.getElementById("photoLightbox").addEventListener("click", (e) => {
+  if (e.target.id === "photoLightbox") closeLightbox();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeLightbox();
+});
+
 function initFirebase(cfg, coachName) {
   try {
     if (!firebase.apps.length) firebase.initializeApp(cfg);
@@ -392,7 +400,7 @@ function openCapturePanel(pk) {
   if (!p) return;
   document.getElementById("photoCaptureTarget").textContent = `Photo de ${p.nom} ${p.prenom}`;
   const frame = document.getElementById("photoFrame");
-  frame.innerHTML = p.photoBase64 ? `<img src="${p.photoBase64}" style="width:100%;height:100%;object-fit:cover;">` : `<span class="muted">Aperçu</span>`;
+  frame.innerHTML = p.photoBase64 ? `<img src="${p.photoBase64}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" onclick="openLightbox(this.src)">` : `<span class="muted">Aperçu</span>`;
   document.getElementById("photoCapturePanel").style.display = "block";
   document.getElementById("photoCapturePanel").scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -471,7 +479,7 @@ function savePhotoForStudent(pk, dataUrl) {
   updatePlayer(pk, { photoBase64: dataUrl });
   showToast(`Photo de ${p ? p.nom : ""} enregistrée`);
   const frame = document.getElementById("photoFrame");
-  if (frame) frame.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+  if (frame) frame.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;cursor:pointer;" onclick="openLightbox(this.src)">`;
 }
 
 function deleteStudentPhoto(pk) {
@@ -483,10 +491,19 @@ function deleteStudentPhoto(pk) {
 
 function avatarHtml(p, size) {
   if (p && p.photoBase64) {
-    return `<img src="${p.photoBase64}" class="avatar" style="width:${size}px;height:${size}px;">`;
+    return `<img src="${p.photoBase64}" class="avatar" style="width:${size}px;height:${size}px;cursor:pointer;" onclick="openLightbox(this.src)">`;
   }
   const initials = ((p && p.nom ? p.nom[0] : "?") + (p && p.prenom ? p.prenom[0] : "")).toUpperCase();
   return `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px;">${initials}</span>`;
+}
+
+function openLightbox(src) {
+  document.getElementById("photoLightboxImg").src = src;
+  document.getElementById("photoLightbox").classList.add("open");
+}
+
+function closeLightbox() {
+  document.getElementById("photoLightbox").classList.remove("open");
 }
 
 function renderPhotosView() {
