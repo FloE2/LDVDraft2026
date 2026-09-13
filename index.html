@@ -528,6 +528,14 @@ footer.app-footer{
   </div>
 </div>
 
+<!-- Lightbox: agrandissement d'une photo au clic -->
+<div class="modal-backdrop" id="photoLightbox" style="background:rgba(10,10,10,0.85);">
+  <div style="max-width:90vw; max-height:90vh; margin:auto; position:relative;">
+    <img id="photoLightboxImg" src="" style="max-width:90vw; max-height:85vh; border-radius:10px; display:block;">
+    <button class="close" id="photoLightboxClose" style="position:absolute; top:-38px; right:0; color:#fff; font-size:2rem;">×</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Firebase SDK (compat, works as plain <script>, no bundler needed) -->
