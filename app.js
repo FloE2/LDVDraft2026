@@ -1,9 +1,9 @@
 /* ============================================================
    Sélection Basket FFSU — logique app
    Firestore (compat SDK) — collections:
-     - players/{pk}
-     - groupPhotos/{groupLetter}
+     - players/{pk}   (inclut désormais photoBase64 : photo individuelle)
      - meta/info
+     - meta/customCriteria
    ============================================================ */
 
 const GROUPS = ["A", "B", "C", "D"];
@@ -46,7 +46,6 @@ const FIREBASE_CONFIG = {
 
 let db = null;
 let players = {};       // pk -> player doc data
-let groupPhotos = {};   // group -> {photoBase64, updatedAt, updatedBy}
 let currentGroup = { appel: "A", photos: "A", eval: "A" };
 let currentModalPk = null;
 let camStream = null;
@@ -104,7 +103,6 @@ function initFirebase(cfg, coachName) {
   attachModalHandlers();
 
   listenPlayers();
-  listenGroupPhotos();
   listenCustomCriteria();
 }
 
@@ -118,14 +116,6 @@ function listenPlayers() {
   }, (err) => {
     console.error(err);
     showToast("Erreur de synchronisation : " + err.message);
-  });
-}
-
-function listenGroupPhotos() {
-  db.collection("groupPhotos").onSnapshot((snap) => {
-    groupPhotos = {};
-    snap.forEach((doc) => { groupPhotos[doc.id] = doc.data(); });
-    if (document.getElementById("view-photos").classList.contains("active")) renderPhotosView();
   });
 }
 
@@ -351,6 +341,7 @@ function renderAppelView() {
     tr.className = "player-row" + (p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
     tr.innerHTML = `
       <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk"></td>
+      <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)}</td>
       <td>${escapeHtml(p.prenom)}</td>
       <td class="muted">${escapeHtml(p.formation || "")}</td>
@@ -383,23 +374,33 @@ function renderAppelView() {
   });
 }
 
-/* ================= PHOTOS VIEW ================= */
+/* ================= PHOTOS VIEW (photos individuelles) ================= */
+
+let currentPhotoTargetPk = null;
 
 function attachPhotoHandlers() {
   document.getElementById("startCamBtn").addEventListener("click", startCamera);
   document.getElementById("snapBtn").addEventListener("click", snapPhoto);
   document.getElementById("cancelCamBtn").addEventListener("click", stopCamera);
   document.getElementById("uploadPhotoInput").addEventListener("change", handleFileUpload);
-  document.getElementById("deletePhotoBtn").addEventListener("click", deleteGroupPhoto);
+  document.getElementById("closeCapturePanelBtn").addEventListener("click", closeCapturePanel);
 }
 
-function deleteGroupPhoto() {
-  const g = currentGroup.photos;
-  if (!groupPhotos[g]) { showToast("Aucune photo à supprimer pour ce groupe"); return; }
-  if (!confirm(`Supprimer la photo du groupe ${g} ?`)) return;
-  db.collection("groupPhotos").doc(g).delete()
-    .then(() => showToast(`Photo du groupe ${g} supprimée`))
-    .catch((e) => showToast("Erreur : " + e.message));
+function openCapturePanel(pk) {
+  currentPhotoTargetPk = pk;
+  const p = players[pk];
+  if (!p) return;
+  document.getElementById("photoCaptureTarget").textContent = `Photo de ${p.nom} ${p.prenom}`;
+  const frame = document.getElementById("photoFrame");
+  frame.innerHTML = p.photoBase64 ? `<img src="${p.photoBase64}" style="width:100%;height:100%;object-fit:cover;">` : `<span class="muted">Aperçu</span>`;
+  document.getElementById("photoCapturePanel").style.display = "block";
+  document.getElementById("photoCapturePanel").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function closeCapturePanel() {
+  stopCamera();
+  currentPhotoTargetPk = null;
+  document.getElementById("photoCapturePanel").style.display = "none";
 }
 
 async function startCamera() {
@@ -408,6 +409,7 @@ async function startCamera() {
     const video = document.getElementById("camPreview");
     video.srcObject = camStream;
     video.style.display = "block";
+    document.getElementById("photoFrame").style.display = "none";
     document.getElementById("snapBtn").style.display = "inline-block";
     document.getElementById("cancelCamBtn").style.display = "inline-block";
     document.getElementById("startCamBtn").style.display = "none";
@@ -420,41 +422,43 @@ function stopCamera() {
   if (camStream) camStream.getTracks().forEach((t) => t.stop());
   camStream = null;
   document.getElementById("camPreview").style.display = "none";
+  document.getElementById("photoFrame").style.display = "flex";
   document.getElementById("snapBtn").style.display = "none";
   document.getElementById("cancelCamBtn").style.display = "none";
   document.getElementById("startCamBtn").style.display = "inline-block";
 }
 
-function snapPhoto() {
-  const video = document.getElementById("camPreview");
+// Crops to a centered square and downsizes — keeps individual photos small (~10-20 Ko each)
+function squareThumbFromSource(source, sw, sh, size, quality) {
   const canvas = document.getElementById("camCanvas");
-  const maxW = 900;
-  const scale = Math.min(1, maxW / video.videoWidth);
-  canvas.width = video.videoWidth * scale;
-  canvas.height = video.videoHeight * scale;
+  canvas.width = size;
+  canvas.height = size;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
-  savePhotoForGroup(dataUrl);
+  const cropSize = Math.min(sw, sh);
+  const sx = (sw - cropSize) / 2;
+  const sy = (sh - cropSize) / 2;
+  ctx.drawImage(source, sx, sy, cropSize, cropSize, 0, 0, size, size);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+function snapPhoto() {
+  if (!currentPhotoTargetPk) return;
+  const video = document.getElementById("camPreview");
+  const dataUrl = squareThumbFromSource(video, video.videoWidth, video.videoHeight, 320, 0.6);
+  savePhotoForStudent(currentPhotoTargetPk, dataUrl);
   stopCamera();
 }
 
 function handleFileUpload(e) {
   const file = e.target.files[0];
-  if (!file) return;
+  if (!file || !currentPhotoTargetPk) return;
+  const targetPk = currentPhotoTargetPk;
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
-      const maxW = 900;
-      const scale = Math.min(1, maxW / img.width);
-      const canvas = document.getElementById("camCanvas");
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
-      savePhotoForGroup(dataUrl);
+      const dataUrl = squareThumbFromSource(img, img.width, img.height, 320, 0.6);
+      savePhotoForStudent(targetPk, dataUrl);
     };
     img.src = reader.result;
   };
@@ -462,53 +466,57 @@ function handleFileUpload(e) {
   e.target.value = "";
 }
 
-function savePhotoForGroup(dataUrl) {
-  const g = currentGroup.photos;
-  db.collection("groupPhotos").doc(g).set({
-    photoBase64: dataUrl,
-    updatedAt: new Date().toISOString(),
-    updatedBy: coachName()
-  }).then(() => showToast(`Photo du groupe ${g} enregistrée`))
-    .catch((e) => showToast("Erreur : " + e.message));
+function savePhotoForStudent(pk, dataUrl) {
+  const p = players[pk];
+  updatePlayer(pk, { photoBase64: dataUrl });
+  showToast(`Photo de ${p ? p.nom : ""} enregistrée`);
+  const frame = document.getElementById("photoFrame");
+  if (frame) frame.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+}
+
+function deleteStudentPhoto(pk) {
+  const p = players[pk];
+  if (!p || !confirm(`Supprimer la photo de ${p.nom} ${p.prenom} ?`)) return;
+  updatePlayer(pk, { photoBase64: null });
+  showToast("Photo supprimée");
+}
+
+function avatarHtml(p, size) {
+  if (p && p.photoBase64) {
+    return `<img src="${p.photoBase64}" class="avatar" style="width:${size}px;height:${size}px;">`;
+  }
+  const initials = ((p && p.nom ? p.nom[0] : "?") + (p && p.prenom ? p.prenom[0] : "")).toUpperCase();
+  return `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px;">${initials}</span>`;
 }
 
 function renderPhotosView() {
   if (!document.getElementById("view-photos").classList.contains("active")) { updateGroupCounts(); return; }
   updateGroupCounts();
   const g = currentGroup.photos;
-  const frame = document.getElementById("photoFrame");
-  const meta = document.getElementById("photoMeta");
-  const gp = groupPhotos[g];
-  if (gp && gp.photoBase64) {
-    frame.innerHTML = `<img src="${gp.photoBase64}">`;
-    meta.textContent = `Ajoutée par ${gp.updatedBy || "?"} — ${formatDate(gp.updatedAt)}`;
-  } else {
-    frame.innerHTML = `<span class="muted">Aucune photo pour ce groupe</span>`;
-    meta.textContent = "";
-  }
+  const list = playersInGroup(g).filter((p) => p.present).sort((a, b) => a.nom.localeCompare(b.nom));
 
-  const list = playersInGroup(g).sort((a, b) => {
-    if (a.numero != null && b.numero != null) return a.numero - b.numero;
-    if (a.numero != null) return -1;
-    if (b.numero != null) return 1;
-    return a.nom.localeCompare(b.nom);
-  });
-  const tbody = document.getElementById("photosTableBody");
-  tbody.innerHTML = "";
+  const container = document.getElementById("photosPeopleList");
+  container.innerHTML = "";
+  if (!list.length) {
+    container.innerHTML = `<p class="muted">Aucun étudiant présent pour l'instant dans ce groupe. Cochez-les dans l'onglet Appel pour qu'ils apparaissent ici.</p>`;
+    return;
+  }
   list.forEach((p) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><input type="number" class="numero-input" min="1" max="99" value="${p.numero != null ? p.numero : ""}" data-pk="${p.pk}"></td>
-      <td class="name">${escapeHtml(p.nom)}</td>
-      <td>${escapeHtml(p.prenom)}</td>
+    const row = document.createElement("div");
+    row.className = "people-row";
+    row.innerHTML = `
+      ${avatarHtml(p, 44)}
+      <span class="pname">${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}</span>
+      <button class="btn small takePhotoBtn" data-pk="${p.pk}">${p.photoBase64 ? "📸 Reprendre" : "📸 Prendre"}</button>
+      ${p.photoBase64 ? `<button class="btn ghost small deletePhotoRowBtn" data-pk="${p.pk}">🗑</button>` : ""}
     `;
-    tbody.appendChild(tr);
+    container.appendChild(row);
   });
-  tbody.querySelectorAll(".numero-input").forEach((inp) => {
-    inp.addEventListener("change", (e) => {
-      const val = e.target.value === "" ? null : parseInt(e.target.value, 10);
-      updatePlayer(e.target.dataset.pk, { numero: val });
-    });
+  container.querySelectorAll(".takePhotoBtn").forEach((btn) => {
+    btn.addEventListener("click", () => openCapturePanel(btn.dataset.pk));
+  });
+  container.querySelectorAll(".deletePhotoRowBtn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteStudentPhoto(btn.dataset.pk));
   });
 }
 
@@ -532,10 +540,6 @@ function renderEvalView() {
     if (sortBy === "rapide") return (b.evalRapide || 0) - (a.evalRapide || 0);
     if (sortBy === "note") return computeAvgNote(b.crit) - computeAvgNote(a.crit);
     if (sortBy === "poste") return (a.poste || "zzz").localeCompare(b.poste || "zzz");
-    // numero
-    if (a.numero != null && b.numero != null) return a.numero - b.numero;
-    if (a.numero != null) return -1;
-    if (b.numero != null) return 1;
     return a.nom.localeCompare(b.nom);
   });
 
@@ -545,7 +549,7 @@ function renderEvalView() {
     const tr = document.createElement("tr");
     tr.className = "player-row" + (p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
     tr.innerHTML = `
-      <td>${p.numero != null ? `<span class="pk-num">#${p.numero}</span>` : ""}</td>
+      <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}</td>
       <td>${escapeHtml(p.poste || "—")}</td>
       <td>${p.joueClub ? escapeHtml(p.joueClub) + (p.niveauClub ? " ("+escapeHtml(p.niveauClub)+")" : "") : "—"}</td>
@@ -635,7 +639,7 @@ function playerResetPatch(p) {
 function resetCurrentPlayer() {
   const p = players[currentModalPk];
   if (!p) return;
-  if (!confirm(`Réinitialiser complètement la fiche de ${p.nom} ${p.prenom} ? (statut, poste, club, taille, observables, note, équipe, groupe et numéro repartent à zéro)`)) return;
+  if (!confirm(`Réinitialiser complètement la fiche de ${p.nom} ${p.prenom} ? (statut, poste, club, taille, observables, note, équipe et groupe repartent à zéro — la photo est conservée)`)) return;
   updatePlayer(currentModalPk, playerResetPatch(p));
   showToast("Fiche réinitialisée");
   closePlayerModal();
@@ -674,6 +678,7 @@ function openPlayerModal(pk) {
   const p = players[currentModalPk];
   if (!p) return;
   document.getElementById("modalName").textContent = `${p.nom} ${p.prenom}`;
+  document.getElementById("modalAvatar").innerHTML = avatarHtml(p, 52);
   document.getElementById("modalMeta").textContent =
     `${p.formation || ""} · Groupe ${p.groupe}${p.numero != null ? " · N°" + p.numero : ""}`;
   document.getElementById("modalPoste").value = p.poste || "";
@@ -839,14 +844,8 @@ async function resetAllPlayers() {
     batches.push(batch);
     for (const b of batches) await b.commit();
 
-    // delete all group photos
-    const photoSnap = await db.collection("groupPhotos").get();
-    const delBatch = db.batch();
-    photoSnap.forEach((doc) => delBatch.delete(doc.ref));
-    if (!photoSnap.empty) await delBatch.commit();
-
-    status.textContent = `Terminé : ${all.length} fiche(s) réinitialisée(s), photos supprimées.`;
-    showToast("Toutes les données ont été réinitialisées");
+    status.textContent = `Terminé : ${all.length} fiche(s) réinitialisée(s). Les photos individuelles ont été conservées.`;
+    showToast("Toutes les évaluations ont été réinitialisées");
   } catch (e) {
     status.textContent = "Erreur : " + e.message;
   }
