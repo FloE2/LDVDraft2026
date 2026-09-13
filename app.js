@@ -359,7 +359,10 @@ function renderAppelView() {
           ${GROUPS.map((gg) => `<option value="${gg}" ${gg === p.groupe ? "selected" : ""}>${gg}</option>`).join("")}
         </select>
       </td>
-      <td><button class="btn ghost small openModalBtn" data-pk="${p.pk}">Fiche</button></td>
+      <td>
+        <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Fiche</button>
+        <button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -380,9 +383,22 @@ function renderAppelView() {
   tbody.querySelectorAll(".openModalBtn").forEach((btn) => {
     btn.addEventListener("click", () => openPlayerModal(btn.dataset.pk));
   });
+  tbody.querySelectorAll(".deleteStudentBtn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteStudent(btn.dataset.pk));
+  });
 }
 
-/* ================= PHOTOS VIEW (photos individuelles) ================= */
+function deleteStudent(pk) {
+  const p = players[pk];
+  if (!p) return;
+  if (!confirm(`Supprimer définitivement ${p.nom} ${p.prenom} de la sélection ? Cette action est irréversible (fiche, photo et évaluation seront perdues).`)) return;
+  db.collection("players").doc(String(pk)).delete()
+    .then(() => {
+      showToast(`${p.nom} ${p.prenom} supprimé`);
+      if (currentModalPk === String(pk)) closePlayerModal();
+    })
+    .catch((e) => showToast("Erreur : " + e.message));
+}
 
 let currentPhotoTargetPk = null;
 
@@ -632,6 +648,9 @@ function attachModalHandlers() {
   document.getElementById("validatePlayerBtn").addEventListener("click", () => {
     showToast("Fiche validée et enregistrée");
     closePlayerModal();
+  });
+  document.getElementById("deletePlayerBtn").addEventListener("click", () => {
+    if (currentModalPk) deleteStudent(currentModalPk);
   });
 }
 
