@@ -140,6 +140,16 @@ tr:hover td{ background: var(--panel-2); }
 .star-frac .bg{ color:#d7dade; }
 .star-frac .fg{ position:absolute; left:0; top:0; overflow:hidden; color:var(--gold); white-space:nowrap; }
 
+.avatar{
+  border-radius:50%; object-fit:cover; background:var(--panel-2); border:1px solid var(--line);
+  display:inline-flex; align-items:center; justify-content:center; font-weight:700; color:var(--ink-dim);
+  flex-shrink:0;
+}
+.people-row{
+  display:flex; align-items:center; gap:12px; padding:9px 6px; border-bottom:1px solid #edeef0;
+}
+.people-row .pname{ flex:1; font-weight:600; }
+
 .crit-grid{ display:grid; grid-template-columns: 1fr; gap:10px; }
 @media(min-width:640px){ .crit-grid{ grid-template-columns: 1fr 1fr; } }
 .crit-item{ display:flex; align-items:center; justify-content:space-between; background:var(--panel-2); border:1px solid var(--line); padding:8px 10px; border-radius:7px; }
@@ -270,7 +280,7 @@ footer.app-footer{
       <div style="overflow-x:auto;">
         <table>
           <thead><tr>
-            <th></th><th>Nom</th><th>Prénom</th><th>Formation</th><th>Statut</th><th>Groupe</th><th></th>
+            <th></th><th></th><th>Nom</th><th>Prénom</th><th>Formation</th><th>Statut</th><th>Groupe</th><th></th>
           </tr></thead>
           <tbody id="appelTableBody"></tbody>
         </table>
@@ -282,31 +292,28 @@ footer.app-footer{
   <div class="view" id="view-photos">
     <div class="card">
       <div class="group-picker" id="photosGroupPicker"></div>
-      <h3>Photo du groupe</h3>
-      <div class="photo-box">
-        <div class="photo-frame" id="photoFrame"><span class="muted">Aucune photo</span></div>
-        <video id="camPreview" autoplay playsinline></video>
-        <canvas id="camCanvas" style="display:none;"></canvas>
-        <div class="photo-actions">
-          <button class="btn" id="startCamBtn">📸 Prendre une photo</button>
-          <button class="btn ghost" id="snapBtn" style="display:none;">Capturer</button>
-          <button class="btn ghost" id="cancelCamBtn" style="display:none;">Annuler</button>
-          <label class="btn ghost" style="cursor:pointer;">Importer un fichier
-            <input type="file" accept="image/*" id="uploadPhotoInput" style="display:none;">
-          </label>
-          <button class="btn danger" id="deletePhotoBtn">🗑 Supprimer la photo</button>
+      <h3>Photos individuelles — étudiants présents</h3>
+      <p class="muted">Seuls les étudiants cochés « présent » dans l'onglet Appel apparaissent ici.</p>
+
+      <div id="photoCapturePanel" style="display:none; background:var(--panel-2); border:1px solid var(--line); border-radius:9px; padding:14px; margin:14px 0;">
+        <p style="font-weight:700; margin:0 0 10px 0;" id="photoCaptureTarget"></p>
+        <div class="photo-box">
+          <div class="photo-frame" id="photoFrame" style="max-width:320px; aspect-ratio:1/1;"><span class="muted">Aperçu</span></div>
+          <video id="camPreview" autoplay playsinline style="max-width:320px; aspect-ratio:1/1;"></video>
+          <canvas id="camCanvas" style="display:none;"></canvas>
+          <div class="photo-actions">
+            <button class="btn" id="startCamBtn">📸 Activer la caméra</button>
+            <button class="btn ghost" id="snapBtn" style="display:none;">Capturer</button>
+            <button class="btn ghost" id="cancelCamBtn" style="display:none;">Annuler</button>
+            <label class="btn ghost" style="cursor:pointer;">Importer un fichier
+              <input type="file" accept="image/*" id="uploadPhotoInput" style="display:none;">
+            </label>
+            <button class="btn ghost" id="closeCapturePanelBtn">Fermer</button>
+          </div>
         </div>
-        <p class="muted" id="photoMeta" style="text-align:center;"></p>
       </div>
-      <hr class="sep">
-      <h3>Numérotation (gauche → droite sur la photo)</h3>
-      <p class="muted">Reportez ici le numéro que vous avez attribué à chaque étudiant sur la photo.</p>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead><tr><th style="width:60px;">N°</th><th>Nom</th><th>Prénom</th></tr></thead>
-          <tbody id="photosTableBody"></tbody>
-        </table>
-      </div>
+
+      <div id="photosPeopleList"></div>
     </div>
   </div>
 
@@ -317,7 +324,6 @@ footer.app-footer{
       <div class="search-row">
         <input type="search" id="evalSearch" placeholder="Rechercher un étudiant...">
         <select id="evalSortSelect">
-          <option value="numero">Trier par N° photo</option>
           <option value="nom">Trier par nom</option>
           <option value="rapide">Trier par éval. rapide</option>
           <option value="note">Trier par note détaillée</option>
@@ -327,7 +333,7 @@ footer.app-footer{
       <div style="overflow-x:auto;">
         <table>
           <thead><tr>
-            <th></th><th>Nom</th><th>Poste</th><th>Club</th><th>Éval. rapide</th><th>Note détaillée</th><th>Statut</th><th></th>
+            <th></th><th></th><th>Nom</th><th>Poste</th><th>Club</th><th>Éval. rapide</th><th>Note détaillée</th><th>Statut</th><th></th>
           </tr></thead>
           <tbody id="evalTableBody"></tbody>
         </table>
@@ -363,7 +369,7 @@ footer.app-footer{
       <p id="seedStatus" class="muted"></p>
       <hr class="sep">
       <h3>Remettre à zéro toutes les évaluations</h3>
-      <p class="muted">Efface l'appel, les groupes personnalisés, les photos, la numérotation, le poste, le club, la taille, les observables, les notes et les équipes — pour <b>tous les étudiants</b>. La liste des étudiants importés reste intacte, pas besoin de la réimporter.</p>
+      <p class="muted">Efface l'appel, les groupes personnalisés, le poste, le club, la taille, les observables, les notes et les équipes — pour <b>tous les étudiants</b>. Les photos individuelles sont conservées. La liste des étudiants importés reste intacte, pas besoin de la réimporter.</p>
       <button class="btn danger" id="resetAllBtn">Tout réinitialiser (garder les étudiants)</button>
       <p id="resetAllStatus" class="muted"></p>
     </div>
@@ -377,9 +383,12 @@ footer.app-footer{
 <div class="modal-backdrop" id="playerModal">
   <div class="modal">
     <div class="modal-header">
-      <div>
-        <h2 id="modalName">—</h2>
-        <p class="muted" id="modalMeta"></p>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div id="modalAvatar"></div>
+        <div>
+          <h2 id="modalName" style="margin:0;">—</h2>
+          <p class="muted" id="modalMeta"></p>
+        </div>
       </div>
       <button class="close" id="modalClose">×</button>
     </div>
