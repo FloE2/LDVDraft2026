@@ -193,6 +193,7 @@ document.getElementById("seedBtn").addEventListener("click", async () => {
       evalRapide: 0,
       equipe: "",
       notes: "",
+      ancien: false,
       lastEditBy: coachName(),
       lastEditAt: new Date().toISOString()
     });
@@ -314,7 +315,7 @@ function confirmAddStudent() {
     email: "", groupeOriginal: groupe, groupe, creneau: "", lieu: "",
     present: true, numero: null, statut: "actif",
     poste: "", joueClub: "", niveauClub: "", taille: null,
-    crit: {}, note: 0, evalRapide: 0, equipe: "", notes: "",
+    crit: {}, note: 0, evalRapide: 0, equipe: "", notes: "", ancien: false,
     manuallyAdded: true,
     lastEditBy: coachName(), lastEditAt: new Date().toISOString()
   };
@@ -330,6 +331,7 @@ function statusPill(p) {
   if (p.statut === "absent") return `<span class="pill out-e">Absent</span>`;
   if (p.statut === "elimine_niveau") return `<span class="pill out-n">Niveau insuffisant</span>`;
   if (p.statut === "elimine_esprit") return `<span class="pill out-e">État d'esprit</span>`;
+  if (p.ancien) return `<span class="pill ancien">Ancien${p.equipe ? " · Éq." + p.equipe : ""}</span>`;
   if (p.equipe) return `<span class="pill ok">Équipe ${p.equipe}</span>`;
   return `<span class="pill wait">En attente</span>`;
 }
@@ -353,6 +355,7 @@ function renderAppelView() {
     tr.innerHTML = `
       <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk"></td>
       <td><input type="checkbox" ${p.statut === "absent" ? "checked" : ""} data-pk="${p.pk}" class="absentChk"></td>
+      <td><input type="checkbox" ${p.ancien ? "checked" : ""} data-pk="${p.pk}" class="ancienChk" title="Déjà membre confirmé de l'équipe"></td>
       <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)}</td>
       <td>${escapeHtml(p.prenom)}</td>
@@ -389,6 +392,11 @@ function renderAppelView() {
       } else {
         updatePlayer(pk, { statut: "actif" });
       }
+    });
+  });
+  tbody.querySelectorAll(".ancienChk").forEach((chk) => {
+    chk.addEventListener("change", (e) => {
+      updatePlayer(e.target.dataset.pk, { ancien: e.target.checked });
     });
   });
   tbody.querySelectorAll(".moveGroupSel").forEach((sel) => {
@@ -967,7 +975,7 @@ async function resetAllPlayers() {
 }
 
 function exportCsv() {
-  const cols = ["pk","nom","prenom","formation","groupeOriginal","groupe","numero","statut",
+  const cols = ["pk","nom","prenom","formation","groupeOriginal","groupe","numero","statut","ancien",
     "poste","joueClub","niveauClub","taille","evalRapide","note","equipe","notes",
     ...getAllCriteria().map(c => "crit_" + c[0]), "lastEditBy","lastEditAt"];
   const rows = [cols.join(";")];
