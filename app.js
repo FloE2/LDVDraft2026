@@ -107,6 +107,7 @@ function initFirebase(cfg, coachName) {
   attachAppelHandlers();
   attachPhotoHandlers();
   attachEvalHandlers();
+  attachSelectionHandlers();
   attachExportHandlers();
   attachModalHandlers();
 
@@ -226,6 +227,7 @@ function renderAll() {
   renderPhotosView();
   renderEvalView();
   renderTeamsView();
+  renderSelectionView();
 }
 
 /* ---------------- Group pickers ---------------- */
@@ -843,6 +845,66 @@ function renderTeamsView() {
 
   document.getElementById("teamsStats").textContent =
     `${eligible.length} joueur(s) retenu(s) · ${pool.length} non affecté(s)`;
+}
+
+/* ================= SELECTION VIEW (suivi, tous groupes) ================= */
+
+function attachSelectionHandlers() {
+  document.getElementById("selectionSearch").addEventListener("input", renderSelectionView);
+  document.getElementById("selectionFilterEquipe").addEventListener("change", renderSelectionView);
+}
+
+function renderSelectionView() {
+  if (!document.getElementById("view-selection").classList.contains("active")) return;
+  const q = document.getElementById("selectionSearch").value.trim().toLowerCase();
+  const filterEquipe = document.getElementById("selectionFilterEquipe").value;
+
+  let list = Object.values(players).filter((p) => p.statut === "actif" || !p.statut);
+  if (q) list = list.filter((p) => (p.nom + " " + p.prenom).toLowerCase().includes(q));
+  if (filterEquipe === "none") list = list.filter((p) => !p.equipe);
+  else if (filterEquipe) list = list.filter((p) => p.equipe === filterEquipe);
+
+  list.sort((a, b) => {
+    const ea = a.equipe || "9", eb = b.equipe || "9";
+    if (ea !== eb) return ea.localeCompare(eb);
+    return (computeAvgNote(b.crit) || b.evalRapide || 0) - (computeAvgNote(a.crit) || a.evalRapide || 0);
+  });
+
+  const tbody = document.getElementById("selectionTableBody");
+  tbody.innerHTML = "";
+  list.forEach((p) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${avatarHtml(p, 32)}</td>
+      <td class="name">${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}</td>
+      <td>${escapeHtml(p.poste || "—")}</td>
+      <td>${p.taille ? p.taille + " cm" : "—"}</td>
+      <td>${p.joueClub ? escapeHtml(p.joueClub) + (p.niveauClub ? " ("+escapeHtml(p.niveauClub)+")" : "") : "—"}</td>
+      <td>${renderStarsReadonly(computeAvgNote(p.crit) || p.evalRapide || 0)}</td>
+      <td>${escapeHtml(p.groupe)}</td>
+      <td>
+        <select class="selEquipeSel" data-pk="${p.pk}">
+          <option value="" ${!p.equipe ? "selected" : ""}>Non affecté</option>
+          <option value="1" ${p.equipe==="1"?"selected":""}>Équipe 1</option>
+          <option value="2" ${p.equipe==="2"?"selected":""}>Équipe 2</option>
+          <option value="3" ${p.equipe==="3"?"selected":""}>Équipe 3</option>
+        </select>
+      </td>
+      <td><button class="btn ghost small openModalBtn" data-pk="${p.pk}">Détail</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".selEquipeSel").forEach((sel) => {
+    sel.addEventListener("change", (e) => updatePlayer(e.target.dataset.pk, { equipe: e.target.value }));
+  });
+  tbody.querySelectorAll(".openModalBtn").forEach((btn) => {
+    btn.addEventListener("click", () => openPlayerModal(btn.dataset.pk));
+  });
+
+  const withTeam = list.filter((p) => p.equipe).length;
+  document.getElementById("selectionStats").textContent =
+    `${list.length} retenu(s) affiché(s) · ${withTeam} déjà affecté(s) à une équipe`;
 }
 
 /* ================= EXPORT ================= */
