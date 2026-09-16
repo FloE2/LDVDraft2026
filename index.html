@@ -259,6 +259,7 @@ footer.app-footer{
     <button data-view="photos">📷 Photos</button>
     <button data-view="eval">📋 Évaluation</button>
     <button data-view="teams">🏆 Équipes</button>
+    <button data-view="selection">🎯 Sélection</button>
     <button data-view="export">⬇️ Export</button>
   </nav>
 </header>
@@ -353,6 +354,34 @@ footer.app-footer{
     <div class="card">
       <h3>Joueurs retenus non affectés</h3>
       <div class="pool-list" id="poolList"></div>
+    </div>
+  </div>
+
+  <!-- SELECTION VIEW (suivi détaillé, tous groupes confondus) -->
+  <div class="view" id="view-selection">
+    <div class="card">
+      <div class="flex-between" style="margin-bottom:12px;">
+        <h2 style="margin:0;">Suivi de la sélection</h2>
+        <span class="muted" id="selectionStats"></span>
+      </div>
+      <div class="search-row">
+        <input type="search" id="selectionSearch" placeholder="Rechercher un étudiant...">
+        <select id="selectionFilterEquipe">
+          <option value="">Toutes les équipes</option>
+          <option value="1">Équipe 1</option>
+          <option value="2">Équipe 2</option>
+          <option value="3">Équipe 3</option>
+          <option value="none">Non affecté</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th></th><th>Nom</th><th>Poste</th><th>Taille</th><th>Club</th><th>Note</th><th>Groupe</th><th>Équipe</th><th></th>
+          </tr></thead>
+          <tbody id="selectionTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
