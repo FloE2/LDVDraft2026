@@ -884,7 +884,9 @@ function renderSelectionView() {
   const q = document.getElementById("selectionSearch").value.trim().toLowerCase();
   const filterEquipe = document.getElementById("selectionFilterEquipe").value;
 
-  let list = Object.values(players).filter((p) => p.statut === "actif" || !p.statut);
+  const allRetained = Object.values(players).filter((p) => p.statut === "actif" || !p.statut);
+
+  let list = allRetained;
   if (q) list = list.filter((p) => (p.nom + " " + p.prenom).toLowerCase().includes(q));
   if (filterEquipe === "none") list = list.filter((p) => !p.equipe);
   else if (filterEquipe) list = list.filter((p) => p.equipe === filterEquipe);
@@ -897,9 +899,10 @@ function renderSelectionView() {
 
   const tbody = document.getElementById("selectionTableBody");
   tbody.innerHTML = "";
-  list.forEach((p) => {
+  list.forEach((p, idx) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
+      <td class="muted">${idx + 1}</td>
       <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}</td>
       <td>${escapeHtml(p.poste || "—")}</td>
@@ -930,6 +933,17 @@ function renderSelectionView() {
   const withTeam = list.filter((p) => p.equipe).length;
   document.getElementById("selectionStats").textContent =
     `${list.length} retenu(s) affiché(s) · ${withTeam} déjà affecté(s) à une équipe`;
+
+  const c1 = allRetained.filter((p) => p.equipe === "1").length;
+  const c2 = allRetained.filter((p) => p.equipe === "2").length;
+  const c3 = allRetained.filter((p) => p.equipe === "3").length;
+  const cNone = allRetained.filter((p) => !p.equipe).length;
+  document.getElementById("selectionTeamCounts").innerHTML = `
+    <span class="team-count-badge">Équipe 1<span class="n">${c1}</span></span>
+    <span class="team-count-badge">Équipe 2<span class="n">${c2}</span></span>
+    <span class="team-count-badge">Équipe 3<span class="n">${c3}</span></span>
+    <span class="team-count-badge" style="opacity:0.7;">Non affecté<span class="n">${cNone}</span></span>
+  `;
 }
 
 /* ================= EXPORT ================= */
