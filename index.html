@@ -130,6 +130,12 @@ tr:hover td{ background: var(--panel-2); }
 .pill.wait{ background:rgba(182,130,26,0.14); color:var(--gold); }
 .pill.ancien{ background:rgba(46,110,182,0.12); color:#2e6eb6; }
 
+.team-count-badge{
+  background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+  padding:8px 14px; font-size:0.85rem; font-weight:700;
+}
+.team-count-badge .n{ font-size:1.2rem; margin-left:6px; }
+
 .search-row{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
 .search-row input{ flex:1; min-width:160px; }
 
@@ -365,6 +371,7 @@ footer.app-footer{
         <h2 style="margin:0;">Suivi de la sélection</h2>
         <span class="muted" id="selectionStats"></span>
       </div>
+      <div id="selectionTeamCounts" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;"></div>
       <div class="search-row">
         <input type="search" id="selectionSearch" placeholder="Rechercher un étudiant...">
         <select id="selectionFilterEquipe">
@@ -378,7 +385,7 @@ footer.app-footer{
       <div style="overflow-x:auto;">
         <table>
           <thead><tr>
-            <th></th><th>Nom</th><th>Poste</th><th>Taille</th><th>Club</th><th>Note</th><th>Groupe</th><th>Équipe</th><th></th>
+            <th>#</th><th></th><th>Nom</th><th>Poste</th><th>Taille</th><th>Club</th><th>Note</th><th>Groupe</th><th>Équipe</th><th></th>
           </tr></thead>
           <tbody id="selectionTableBody"></tbody>
         </table>
