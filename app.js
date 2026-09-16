@@ -327,6 +327,7 @@ function confirmAddStudent() {
 }
 
 function statusPill(p) {
+  if (p.statut === "absent") return `<span class="pill out-e">Absent</span>`;
   if (p.statut === "elimine_niveau") return `<span class="pill out-n">Niveau insuffisant</span>`;
   if (p.statut === "elimine_esprit") return `<span class="pill out-e">État d'esprit</span>`;
   if (p.equipe) return `<span class="pill ok">Équipe ${p.equipe}</span>`;
@@ -348,9 +349,10 @@ function renderAppelView() {
 
   list.forEach((p) => {
     const tr = document.createElement("tr");
-    tr.className = "player-row" + (p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
+    tr.className = "player-row" + (p.statut === "absent" ? " eliminated-esprit" : p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
     tr.innerHTML = `
       <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk"></td>
+      <td><input type="checkbox" ${p.statut === "absent" ? "checked" : ""} data-pk="${p.pk}" class="absentChk"></td>
       <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)}</td>
       <td>${escapeHtml(p.prenom)}</td>
@@ -371,7 +373,22 @@ function renderAppelView() {
 
   tbody.querySelectorAll(".presentChk").forEach((chk) => {
     chk.addEventListener("change", (e) => {
-      updatePlayer(e.target.dataset.pk, { present: e.target.checked });
+      const patch = { present: e.target.checked };
+      if (e.target.checked && players[e.target.dataset.pk] && players[e.target.dataset.pk].statut === "absent") {
+        patch.statut = "actif"; // being marked present cancels the "absent" status
+      }
+      updatePlayer(e.target.dataset.pk, patch);
+    });
+  });
+  tbody.querySelectorAll(".absentChk").forEach((chk) => {
+    chk.addEventListener("change", (e) => {
+      const pk = e.target.dataset.pk;
+      if (e.target.checked) {
+        updatePlayer(pk, { statut: "absent", present: false });
+        showToast("Étudiant marqué absent — exclu de la sélection");
+      } else {
+        updatePlayer(pk, { statut: "actif" });
+      }
     });
   });
   tbody.querySelectorAll(".moveGroupSel").forEach((sel) => {
@@ -582,7 +599,7 @@ function renderEvalView() {
   tbody.innerHTML = "";
   list.forEach((p) => {
     const tr = document.createElement("tr");
-    tr.className = "player-row" + (p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
+    tr.className = "player-row" + (p.statut === "absent" ? " eliminated-esprit" : p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
     tr.innerHTML = `
       <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}</td>
