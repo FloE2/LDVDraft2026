@@ -221,13 +221,14 @@ video#camPreview{ width:100%; max-width:640px; aspect-ratio:4/3; object-fit:cove
 }
 .toast.show{ opacity:1; }
 
-.contact-popover{
-  position: fixed; background: var(--panel); border:1px solid var(--line); border-radius:9px;
-  padding:8px 12px; box-shadow: 0 6px 20px rgba(20,20,20,0.16); z-index:200;
-  font-size:0.85rem; max-width:300px; display:flex; flex-direction:column;
+.contact-row{
+  display:flex; align-items:center; gap:8px; padding:7px 4px; border-radius:6px;
+  color:var(--ink); text-decoration:none; font-size:0.88rem;
 }
-.contact-popover a{ display:block; color:var(--ink); text-decoration:none; padding:5px 2px; word-break:break-all; }
-.contact-popover a:hover{ color:var(--orange-dim); }
+.contact-row:hover{ background:rgba(0,0,0,0.04); color:var(--orange-dim); }
+.contact-row-icon{ flex-shrink:0; }
+.contact-row-label{ color:var(--ink-dim); font-weight:700; font-size:0.78rem; min-width:42px; }
+.contact-row-value{ font-weight:600; word-break:break-all; }
 
 .muted{ color:var(--ink-dim); font-size:0.82rem; }
 .flex-between{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
@@ -441,10 +442,14 @@ footer.app-footer{
         <div>
           <h2 id="modalName" style="margin:0;">—</h2>
           <p class="muted" id="modalMeta"></p>
-          <p class="muted" id="modalContact" style="margin-top:4px;"></p>
         </div>
       </div>
       <button class="close" id="modalClose">×</button>
+    </div>
+
+    <div class="card" id="modalContactCard" style="background:var(--panel-2); margin:0 0 14px 0; display:none;">
+      <h3 style="margin-bottom:6px;">📇 Contact</h3>
+      <div id="modalContactRows"></div>
     </div>
 
     <div class="elim-row">
