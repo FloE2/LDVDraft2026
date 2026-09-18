@@ -220,6 +220,15 @@ video#camPreview{ width:100%; max-width:640px; aspect-ratio:4/3; object-fit:cove
   transition: opacity .2s;
 }
 .toast.show{ opacity:1; }
+
+.contact-popover{
+  position: fixed; background: var(--panel); border:1px solid var(--line); border-radius:9px;
+  padding:8px 12px; box-shadow: 0 6px 20px rgba(20,20,20,0.16); z-index:200;
+  font-size:0.85rem; max-width:260px; display:flex; flex-direction:column;
+}
+.contact-popover a{ display:block; color:var(--ink); text-decoration:none; padding:5px 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.contact-popover a:hover{ color:var(--orange-dim); }
+
 .muted{ color:var(--ink-dim); font-size:0.82rem; }
 .flex-between{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
 .hidden{ display:none !important; }
@@ -269,7 +278,6 @@ footer.app-footer{
     <button data-view="eval">📋 Évaluation</button>
     <button data-view="teams">🏆 Équipes</button>
     <button data-view="selection">🎯 Sélection</button>
-    <button data-view="comm">📲 WhatsApp &amp; Emails</button>
     <button data-view="export">⬇️ Export</button>
   </nav>
 </header>
@@ -393,87 +401,6 @@ footer.app-footer{
           <tbody id="selectionTableBody"></tbody>
         </table>
       </div>
-    </div>
-  </div>
-
-  <!-- COMMUNICATION VIEW (WhatsApp + emails) -->
-  <div class="view" id="view-comm">
-    <div class="card">
-      <h2>Réglages par équipe</h2>
-      <p class="muted">À remplir une fois par équipe : le lien d'invitation du groupe WhatsApp déjà créé, et le créneau d'entraînement attribué. Synchronisé entre les deux entraîneurs.</p>
-      <div class="field-row" style="grid-template-columns:1fr;">
-        <div>
-          <label>Équipe 1 — Lien d'invitation WhatsApp</label>
-          <input type="text" id="whatsappLink1" style="width:100%;" placeholder="https://chat.whatsapp.com/...">
-        </div>
-      </div>
-      <div class="field-row" style="grid-template-columns:1fr; margin-top:-4px;">
-        <div>
-          <label>Équipe 1 — Créneau d'entraînement attribué</label>
-          <input type="text" id="teamSchedule1" style="width:100%;" placeholder="Ex : Mardi 18h-19h30, gymnase de Nanterre">
-        </div>
-      </div>
-      <hr class="sep">
-      <div class="field-row" style="grid-template-columns:1fr;">
-        <div>
-          <label>Équipe 2 — Lien d'invitation WhatsApp</label>
-          <input type="text" id="whatsappLink2" style="width:100%;" placeholder="https://chat.whatsapp.com/...">
-        </div>
-      </div>
-      <div class="field-row" style="grid-template-columns:1fr; margin-top:-4px;">
-        <div>
-          <label>Équipe 2 — Créneau d'entraînement attribué</label>
-          <input type="text" id="teamSchedule2" style="width:100%;" placeholder="Ex : Mardi 18h-19h30, gymnase de Nanterre">
-        </div>
-      </div>
-      <hr class="sep">
-      <div class="field-row" style="grid-template-columns:1fr;">
-        <div>
-          <label>Équipe 3 — Lien d'invitation WhatsApp</label>
-          <input type="text" id="whatsappLink3" style="width:100%;" placeholder="https://chat.whatsapp.com/...">
-        </div>
-      </div>
-      <div class="field-row" style="grid-template-columns:1fr; margin-top:-4px;">
-        <div>
-          <label>Équipe 3 — Créneau d'entraînement attribué</label>
-          <input type="text" id="teamSchedule3" style="width:100%;" placeholder="Ex : Mardi 18h-19h30, gymnase de Nanterre">
-        </div>
-      </div>
-      <button class="btn" id="saveTeamSettingsBtn" style="margin-top:10px;">💾 Enregistrer les réglages</button>
-    </div>
-
-    <div class="card">
-      <h2>Email d'invitation — Équipe 1</h2>
-      <p class="muted" id="commCount1"></p>
-      <textarea id="commPreview1" readonly style="width:100%; min-height:170px; font-family:var(--font-body);"></textarea>
-      <div class="photo-actions" style="justify-content:flex-start; margin-top:10px;">
-        <button class="btn ghost small" id="commCopyEmails1">📋 Copier les emails</button>
-        <button class="btn ghost small" id="commCopyMsg1">📋 Copier le message</button>
-        <a class="btn small" id="commMailto1" href="#">✉️ Ouvrir dans ma messagerie</a>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Email d'invitation — Équipe 2</h2>
-      <p class="muted" id="commCount2"></p>
-      <textarea id="commPreview2" readonly style="width:100%; min-height:170px; font-family:var(--font-body);"></textarea>
-      <div class="photo-actions" style="justify-content:flex-start; margin-top:10px;">
-        <button class="btn ghost small" id="commCopyEmails2">📋 Copier les emails</button>
-        <button class="btn ghost small" id="commCopyMsg2">📋 Copier le message</button>
-        <a class="btn small" id="commMailto2" href="#">✉️ Ouvrir dans ma messagerie</a>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Email d'invitation — Équipe 3</h2>
-      <p class="muted" id="commCount3"></p>
-      <textarea id="commPreview3" readonly style="width:100%; min-height:170px; font-family:var(--font-body);"></textarea>
-      <div class="photo-actions" style="justify-content:flex-start; margin-top:10px;">
-        <button class="btn ghost small" id="commCopyEmails3">📋 Copier les emails</button>
-        <button class="btn ghost small" id="commCopyMsg3">📋 Copier le message</button>
-        <a class="btn small" id="commMailto3" href="#">✉️ Ouvrir dans ma messagerie</a>
-      </div>
-      <p class="muted" style="margin-top:10px;">💡 Le bouton « Ouvrir dans ma messagerie » place tous les destinataires en copie cachée (Cci). Si l'équipe est nombreuse, certains clients mail limitent la longueur du lien : utilisez plutôt « Copier les emails » + « Copier le message » et collez-les vous-même dans un nouveau mail en Cci.</p>
     </div>
   </div>
 
