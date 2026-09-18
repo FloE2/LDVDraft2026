@@ -221,14 +221,9 @@ video#camPreview{ width:100%; max-width:640px; aspect-ratio:4/3; object-fit:cove
 }
 .toast.show{ opacity:1; }
 
-.contact-row{
-  display:flex; align-items:center; gap:8px; padding:7px 4px; border-radius:6px;
-  color:var(--ink); text-decoration:none; font-size:0.88rem;
-}
-.contact-row:hover{ background:rgba(0,0,0,0.04); color:var(--orange-dim); }
-.contact-row-icon{ flex-shrink:0; }
-.contact-row-label{ color:var(--ink-dim); font-weight:700; font-size:0.78rem; min-width:42px; }
-.contact-row-value{ font-weight:600; word-break:break-all; }
+.contact-field-row{ display:flex; align-items:flex-end; gap:8px; margin-bottom:10px; }
+.contact-field-row label{ display:block; font-size:0.78rem; color:var(--ink-dim); margin-bottom:4px; }
+.contact-field-row .btn:disabled{ opacity:0.35; cursor:not-allowed; }
 
 .muted{ color:var(--ink-dim); font-size:0.82rem; }
 .flex-between{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;}
@@ -447,9 +442,29 @@ footer.app-footer{
       <button class="close" id="modalClose">×</button>
     </div>
 
-    <div class="card" id="modalContactCard" style="background:var(--panel-2); margin:0 0 14px 0; display:none;">
-      <h3 style="margin-bottom:6px;">📇 Contact</h3>
-      <div id="modalContactRows"></div>
+    <div class="card" id="modalContactCard" style="background:var(--panel-2); margin:0 0 14px 0;">
+      <h3 style="margin-bottom:10px;">📇 Contact</h3>
+      <div class="contact-field-row">
+        <div style="flex:1;">
+          <label>Email pro (edu)</label>
+          <input type="email" id="modalEmailPro" style="width:100%;" placeholder="prenom.nom@edu.devinci.fr">
+        </div>
+        <button type="button" class="btn ghost small" id="modalEmailProAction" title="Envoyer un email">✉️</button>
+      </div>
+      <div class="contact-field-row">
+        <div style="flex:1;">
+          <label>Email perso</label>
+          <input type="email" id="modalEmailPerso" style="width:100%;" placeholder="exemple@gmail.com">
+        </div>
+        <button type="button" class="btn ghost small" id="modalEmailPersoAction" title="Envoyer un email">✉️</button>
+      </div>
+      <div class="contact-field-row" style="margin-bottom:0;">
+        <div style="flex:1;">
+          <label>Téléphone</label>
+          <input type="tel" id="modalTelephone" style="width:100%;" placeholder="06 12 34 56 78">
+        </div>
+        <button type="button" class="btn ghost small" id="modalTelephoneAction" title="Appeler">📞</button>
+      </div>
     </div>
 
     <div class="elim-row">
