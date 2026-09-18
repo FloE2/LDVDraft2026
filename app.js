@@ -592,63 +592,10 @@ function deleteStudentPhoto(pk) {
 
 function contactSummary(p) {
   const parts = [];
-  if (p.email) parts.push({ icon: "✉️", label: "Pro : " + p.email, href: "mailto:" + p.email });
-  if (p.emailPerso) parts.push({ icon: "✉️", label: "Perso : " + p.emailPerso, href: "mailto:" + p.emailPerso });
-  if (p.telephone) parts.push({ icon: "📞", label: p.telephone, href: "tel:" + p.telephone.replace(/\s/g, "") });
+  if (p.email) parts.push({ icon: "✉️", label: "Pro", value: p.email, href: "mailto:" + p.email });
+  if (p.emailPerso) parts.push({ icon: "✉️", label: "Perso", value: p.emailPerso, href: "mailto:" + p.emailPerso });
+  if (p.telephone) parts.push({ icon: "📞", label: "Tél.", value: p.telephone, href: "tel:" + p.telephone.replace(/\s/g, "") });
   return parts;
-}
-
-function contactLinksHtml(p) {
-  const parts = contactSummary(p);
-  if (!parts.length) return `<span class="muted">Aucune coordonnée enregistrée</span>`;
-  return parts.map((x) => `<a href="${x.href}">${x.icon} ${escapeHtml(x.label)}</a>`).join(" &nbsp;·&nbsp; ");
-}
-
-let openContactPopoverEl = null;
-
-function closeContactPopover() {
-  if (openContactPopoverEl) { openContactPopoverEl.remove(); openContactPopoverEl = null; }
-  document.removeEventListener("click", handleOutsideContactClick, true);
-  document.removeEventListener("keydown", handleContactPopoverEscape, true);
-}
-
-function handleOutsideContactClick(e) {
-  if (openContactPopoverEl && !openContactPopoverEl.contains(e.target) && !e.target.closest(".contactBtn")) {
-    closeContactPopover();
-  }
-}
-
-function handleContactPopoverEscape(e) {
-  if (e.key === "Escape") closeContactPopover();
-}
-
-function toggleContactPopover(btn, pk) {
-  if (openContactPopoverEl && openContactPopoverEl.dataset.pk === String(pk)) { closeContactPopover(); return; }
-  closeContactPopover();
-  const p = players[pk];
-  if (!p) return;
-  const parts = contactSummary(p);
-  const pop = document.createElement("div");
-  pop.className = "contact-popover";
-  pop.dataset.pk = String(pk);
-  pop.innerHTML = parts.length
-    ? parts.map((x) => `<a href="${x.href}">${x.icon} ${escapeHtml(x.label)}</a>`).join("")
-    : `<span class="muted">Aucune coordonnée enregistrée</span>`;
-  document.body.appendChild(pop);
-  const rect = btn.getBoundingClientRect();
-  const popRect = pop.getBoundingClientRect();
-  let top = rect.bottom + 6;
-  let left = rect.left;
-  if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
-  if (left < 8) left = 8;
-  if (top + popRect.height > window.innerHeight - 8) top = rect.top - popRect.height - 6;
-  pop.style.top = top + "px";
-  pop.style.left = left + "px";
-  openContactPopoverEl = pop;
-  setTimeout(() => {
-    document.addEventListener("click", handleOutsideContactClick, true);
-    document.addEventListener("keydown", handleContactPopoverEscape, true);
-  }, 0);
 }
 
 function avatarHtml(p, size) {
@@ -883,7 +830,18 @@ function openPlayerModal(pk) {
 }
 
 function renderModalContact(p) {
-  document.getElementById("modalContact").innerHTML = contactLinksHtml(p);
+  const card = document.getElementById("modalContactCard");
+  const rows = document.getElementById("modalContactRows");
+  const parts = contactSummary(p);
+  if (!parts.length) { card.style.display = "none"; rows.innerHTML = ""; return; }
+  card.style.display = "block";
+  rows.innerHTML = parts.map((x) => `
+    <a href="${x.href}" class="contact-row">
+      <span class="contact-row-icon">${x.icon}</span>
+      <span class="contact-row-label">${escapeHtml(x.label)}</span>
+      <span class="contact-row-value">${escapeHtml(x.value)}</span>
+    </a>
+  `).join("");
 }
 
 function closePlayerModal() {
@@ -1042,7 +1000,7 @@ function renderSelectionView() {
           <option value="3" ${p.equipe==="3"?"selected":""}>Équipe 3</option>
         </select>
       </td>
-      <td><button class="btn ghost small contactBtn" data-pk="${p.pk}" title="Voir email / téléphone">📇</button> <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Détail</button></td>
+      <td><button class="btn ghost small openModalBtn" data-pk="${p.pk}">Détail</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1052,9 +1010,6 @@ function renderSelectionView() {
   });
   tbody.querySelectorAll(".openModalBtn").forEach((btn) => {
     btn.addEventListener("click", () => openPlayerModal(btn.dataset.pk));
-  });
-  tbody.querySelectorAll(".contactBtn").forEach((btn) => {
-    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleContactPopover(btn, btn.dataset.pk); });
   });
 
   const withTeam = list.filter((p) => p.equipe).length;
