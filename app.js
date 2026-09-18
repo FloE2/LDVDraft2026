@@ -49,7 +49,6 @@ let players = {};       // pk -> player doc data
 let currentGroup = { appel: "A", photos: "A", eval: "A" };
 let currentModalPk = null;
 let camStream = null;
-let teamSettings = { whatsappLinks: {}, teamSchedules: {} }; // meta/info : liens WhatsApp + créneau par équipe (1,2,3)
 
 /* ---------------- Setup / boot ---------------- */
 
@@ -111,11 +110,9 @@ function initFirebase(cfg, coachName) {
   attachSelectionHandlers();
   attachExportHandlers();
   attachModalHandlers();
-  attachCommHandlers();
 
   listenPlayers();
   listenCustomCriteria();
-  listenTeamSettings();
 }
 
 /* ---------------- Firestore listeners ---------------- */
@@ -136,17 +133,6 @@ function listenCustomCriteria() {
     customCriteria = (doc.exists && doc.data().list) || [];
     buildCritGrid();
     if (currentModalPk && players[currentModalPk]) renderCritStars(players[currentModalPk]);
-  });
-}
-
-function listenTeamSettings() {
-  db.collection("meta").doc("info").onSnapshot((doc) => {
-    const data = (doc.exists && doc.data()) || {};
-    teamSettings = {
-      whatsappLinks: data.whatsappLinks || {},
-      teamSchedules: data.teamSchedules || {}
-    };
-    renderCommView();
   });
 }
 
@@ -268,7 +254,6 @@ function renderAll() {
   renderEvalView();
   renderTeamsView();
   renderSelectionView();
-  renderCommView();
 }
 
 /* ---------------- Group pickers ---------------- */
@@ -408,6 +393,7 @@ function renderAppelView() {
       </td>
       <td>
         <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Fiche</button>
+        <button class="btn ghost small contactBtn" data-pk="${p.pk}" title="Voir email / téléphone">📇</button>
         <button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>
       </td>
     `;
@@ -452,6 +438,9 @@ function renderAppelView() {
   });
   tbody.querySelectorAll(".deleteStudentBtn").forEach((btn) => {
     btn.addEventListener("click", () => deleteStudent(btn.dataset.pk));
+  });
+  tbody.querySelectorAll(".contactBtn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleContactPopover(btn, btn.dataset.pk); });
   });
 }
 
@@ -572,6 +561,67 @@ function deleteStudentPhoto(pk) {
   showToast("Photo supprimée");
 }
 
+function contactSummary(p) {
+  const parts = [];
+  if (p.email) parts.push({ icon: "✉️", label: p.email, href: "mailto:" + p.email });
+  if (p.emailPerso) parts.push({ icon: "✉️", label: p.emailPerso + " (perso)", href: "mailto:" + p.emailPerso });
+  if (p.telephone) parts.push({ icon: "📞", label: p.telephone, href: "tel:" + p.telephone.replace(/\s/g, "") });
+  return parts;
+}
+
+function contactLinksHtml(p) {
+  const parts = contactSummary(p);
+  if (!parts.length) return `<span class="muted">Aucune coordonnée enregistrée</span>`;
+  return parts.map((x) => `<a href="${x.href}">${x.icon} ${escapeHtml(x.label)}</a>`).join(" &nbsp;·&nbsp; ");
+}
+
+let openContactPopoverEl = null;
+
+function closeContactPopover() {
+  if (openContactPopoverEl) { openContactPopoverEl.remove(); openContactPopoverEl = null; }
+  document.removeEventListener("click", handleOutsideContactClick, true);
+  document.removeEventListener("keydown", handleContactPopoverEscape, true);
+}
+
+function handleOutsideContactClick(e) {
+  if (openContactPopoverEl && !openContactPopoverEl.contains(e.target) && !e.target.closest(".contactBtn")) {
+    closeContactPopover();
+  }
+}
+
+function handleContactPopoverEscape(e) {
+  if (e.key === "Escape") closeContactPopover();
+}
+
+function toggleContactPopover(btn, pk) {
+  if (openContactPopoverEl && openContactPopoverEl.dataset.pk === String(pk)) { closeContactPopover(); return; }
+  closeContactPopover();
+  const p = players[pk];
+  if (!p) return;
+  const parts = contactSummary(p);
+  const pop = document.createElement("div");
+  pop.className = "contact-popover";
+  pop.dataset.pk = String(pk);
+  pop.innerHTML = parts.length
+    ? parts.map((x) => `<a href="${x.href}">${x.icon} ${escapeHtml(x.label)}</a>`).join("")
+    : `<span class="muted">Aucune coordonnée enregistrée</span>`;
+  document.body.appendChild(pop);
+  const rect = btn.getBoundingClientRect();
+  const popRect = pop.getBoundingClientRect();
+  let top = rect.bottom + 6;
+  let left = rect.left;
+  if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+  if (left < 8) left = 8;
+  if (top + popRect.height > window.innerHeight - 8) top = rect.top - popRect.height - 6;
+  pop.style.top = top + "px";
+  pop.style.left = left + "px";
+  openContactPopoverEl = pop;
+  setTimeout(() => {
+    document.addEventListener("click", handleOutsideContactClick, true);
+    document.addEventListener("keydown", handleContactPopoverEscape, true);
+  }, 0);
+}
+
 function avatarHtml(p, size) {
   if (p && p.photoBase64) {
     return `<img src="${p.photoBase64}" class="avatar" style="width:${size}px;height:${size}px;cursor:pointer;" onclick="openLightbox(this.src)">`;
@@ -656,12 +706,15 @@ function renderEvalView() {
       <td>${renderStarsReadonly(p.evalRapide || 0)}</td>
       <td>${renderStarsReadonly(computeAvgNote(p.crit))}</td>
       <td>${statusPill(p)}</td>
-      <td><button class="btn small openModalBtn" data-pk="${p.pk}">Évaluer</button></td>
+      <td><button class="btn ghost small contactBtn" data-pk="${p.pk}" title="Voir email / téléphone">📇</button> <button class="btn small openModalBtn" data-pk="${p.pk}">Évaluer</button></td>
     `;
     tbody.appendChild(tr);
   });
   tbody.querySelectorAll(".openModalBtn").forEach((btn) => {
     btn.addEventListener("click", () => openPlayerModal(btn.dataset.pk));
+  });
+  tbody.querySelectorAll(".contactBtn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleContactPopover(btn, btn.dataset.pk); });
   });
 }
 
@@ -804,12 +857,7 @@ function openPlayerModal(pk) {
 }
 
 function renderModalContact(p) {
-  const el = document.getElementById("modalContact");
-  const parts = [];
-  if (p.email) parts.push(`<a href="mailto:${escapeHtml(p.email)}">✉️ ${escapeHtml(p.email)}</a>`);
-  if (p.emailPerso) parts.push(`<a href="mailto:${escapeHtml(p.emailPerso)}">✉️ ${escapeHtml(p.emailPerso)} (perso)</a>`);
-  if (p.telephone) parts.push(`<a href="tel:${escapeHtml(p.telephone.replace(/\s/g, ""))}">📞 ${escapeHtml(p.telephone)}</a>`);
-  el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : `<span class="muted">Aucune coordonnée enregistrée</span>`;
+  document.getElementById("modalContact").innerHTML = contactLinksHtml(p);
 }
 
 function closePlayerModal() {
@@ -922,95 +970,6 @@ function renderTeamsView() {
     `${eligible.length} joueur(s) retenu(s) · ${pool.length} non affecté(s)`;
 }
 
-/* ================= COMMUNICATION / WHATSAPP VIEW ================= */
-
-function recipientEmail(p) { return p.email || p.emailPerso || ""; }
-
-function teamRecipients(teamId) {
-  return Object.values(players)
-    .filter((p) => p.equipe === teamId && (p.statut === "actif" || !p.statut))
-    .sort((a, b) => a.nom.localeCompare(b.nom));
-}
-
-function buildTeamMessage(teamId) {
-  const schedule = (teamSettings.teamSchedules && teamSettings.teamSchedules[teamId]) || "(créneau à préciser)";
-  const link = (teamSettings.whatsappLinks && teamSettings.whatsappLinks[teamId]) || "(lien du groupe WhatsApp à ajouter ci-dessus)";
-  return `Bonjour,
-
-Félicitations, tu as été sélectionné(e) pour l'Équipe ${teamId} de basket du Pôle Léonard de Vinci (FFSU) !
-
-📅 Ton créneau d'entraînement attribué : ${schedule}
-
-Merci de rejoindre dès que possible le groupe WhatsApp de l'équipe en cliquant sur ce lien (indispensable pour recevoir toutes les infos à venir) :
-${link}
-
-Sportivement,
-${coachName()}`;
-}
-
-function buildMailto(emails, teamId) {
-  const subject = encodeURIComponent(`Basket FFSU — Équipe ${teamId} : rejoins le groupe WhatsApp`);
-  const body = encodeURIComponent(buildTeamMessage(teamId));
-  const bcc = encodeURIComponent(emails.join(","));
-  return `mailto:?bcc=${bcc}&subject=${subject}&body=${body}`;
-}
-
-function attachCommHandlers() {
-  document.getElementById("saveTeamSettingsBtn").addEventListener("click", saveTeamSettings);
-  ["1", "2", "3"].forEach((teamId) => {
-    document.getElementById("commCopyEmails" + teamId).addEventListener("click", () => copyTeamEmails(teamId));
-    document.getElementById("commCopyMsg" + teamId).addEventListener("click", () => copyTeamMessage(teamId));
-  });
-}
-
-function saveTeamSettings() {
-  const whatsappLinks = {}, teamSchedules = {};
-  ["1", "2", "3"].forEach((teamId) => {
-    whatsappLinks[teamId] = document.getElementById("whatsappLink" + teamId).value.trim();
-    teamSchedules[teamId] = document.getElementById("teamSchedule" + teamId).value.trim();
-  });
-  db.collection("meta").doc("info").set({ whatsappLinks, teamSchedules }, { merge: true })
-    .then(() => showToast("Réglages des équipes enregistrés"))
-    .catch((e) => showToast("Erreur : " + e.message));
-}
-
-function copyTeamEmails(teamId) {
-  const emails = teamRecipients(teamId).map(recipientEmail).filter(Boolean);
-  if (!emails.length) { showToast("Aucun email disponible pour cette équipe"); return; }
-  navigator.clipboard.writeText(emails.join(", "))
-    .then(() => showToast(`${emails.length} email(s) copié(s)`))
-    .catch(() => showToast("Impossible de copier (autorisation presse-papier refusée)"));
-}
-
-function copyTeamMessage(teamId) {
-  navigator.clipboard.writeText(buildTeamMessage(teamId))
-    .then(() => showToast("Message copié"))
-    .catch(() => showToast("Impossible de copier (autorisation presse-papier refusée)"));
-}
-
-function renderCommView() {
-  const view = document.getElementById("view-comm");
-  if (!view || !view.classList.contains("active")) return;
-  ["1", "2", "3"].forEach((teamId) => {
-    const wsEl = document.getElementById("whatsappLink" + teamId);
-    const schEl = document.getElementById("teamSchedule" + teamId);
-    if (document.activeElement !== wsEl) wsEl.value = (teamSettings.whatsappLinks && teamSettings.whatsappLinks[teamId]) || "";
-    if (document.activeElement !== schEl) schEl.value = (teamSettings.teamSchedules && teamSettings.teamSchedules[teamId]) || "";
-
-    const recipients = teamRecipients(teamId);
-    const emails = recipients.map(recipientEmail).filter(Boolean);
-    const missing = recipients.length - emails.length;
-    document.getElementById("commCount" + teamId).textContent =
-      `${recipients.length} joueur(s) dans l'équipe ${teamId} · ${emails.length} email(s) disponible(s)` +
-      (missing ? ` · ${missing} sans email` : "");
-    document.getElementById("commPreview" + teamId).value = buildTeamMessage(teamId);
-    const mailtoBtn = document.getElementById("commMailto" + teamId);
-    mailtoBtn.href = buildMailto(emails, teamId);
-    if (!emails.length) mailtoBtn.setAttribute("aria-disabled", "true");
-    else mailtoBtn.removeAttribute("aria-disabled");
-  });
-}
-
 /* ================= SELECTION VIEW (suivi, tous groupes) ================= */
 
 function attachSelectionHandlers() {
@@ -1057,7 +1016,7 @@ function renderSelectionView() {
           <option value="3" ${p.equipe==="3"?"selected":""}>Équipe 3</option>
         </select>
       </td>
-      <td><button class="btn ghost small openModalBtn" data-pk="${p.pk}">Détail</button></td>
+      <td><button class="btn ghost small contactBtn" data-pk="${p.pk}" title="Voir email / téléphone">📇</button> <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Détail</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1067,6 +1026,9 @@ function renderSelectionView() {
   });
   tbody.querySelectorAll(".openModalBtn").forEach((btn) => {
     btn.addEventListener("click", () => openPlayerModal(btn.dataset.pk));
+  });
+  tbody.querySelectorAll(".contactBtn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleContactPopover(btn, btn.dataset.pk); });
   });
 
   const withTeam = list.filter((p) => p.equipe).length;
