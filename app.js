@@ -590,14 +590,6 @@ function deleteStudentPhoto(pk) {
   showToast("Photo supprimée");
 }
 
-function contactSummary(p) {
-  const parts = [];
-  if (p.email) parts.push({ icon: "✉️", label: "Pro", value: p.email, href: "mailto:" + p.email });
-  if (p.emailPerso) parts.push({ icon: "✉️", label: "Perso", value: p.emailPerso, href: "mailto:" + p.emailPerso });
-  if (p.telephone) parts.push({ icon: "📞", label: "Tél.", value: p.telephone, href: "tel:" + p.telephone.replace(/\s/g, "") });
-  return parts;
-}
-
 function avatarHtml(p, size) {
   if (p && p.photoBase64) {
     return `<img src="${p.photoBase64}" class="avatar" style="width:${size}px;height:${size}px;cursor:pointer;" onclick="openLightbox(this.src)">`;
@@ -730,6 +722,12 @@ function attachModalHandlers() {
   });
   document.getElementById("elimNiveauChk").addEventListener("change", onElimChange);
   document.getElementById("elimEspritChk").addEventListener("change", onElimChange);
+  document.getElementById("modalEmailPro").addEventListener("change", (e) => { saveModalField("email", e.target.value.trim()); updateContactActionLinks(); });
+  document.getElementById("modalEmailPerso").addEventListener("change", (e) => { saveModalField("emailPerso", e.target.value.trim()); updateContactActionLinks(); });
+  document.getElementById("modalTelephone").addEventListener("change", (e) => { saveModalField("telephone", e.target.value.trim()); updateContactActionLinks(); });
+  document.getElementById("modalEmailProAction").addEventListener("click", (e) => { if (e.currentTarget.dataset.value) window.location.href = "mailto:" + e.currentTarget.dataset.value; });
+  document.getElementById("modalEmailPersoAction").addEventListener("click", (e) => { if (e.currentTarget.dataset.value) window.location.href = "mailto:" + e.currentTarget.dataset.value; });
+  document.getElementById("modalTelephoneAction").addEventListener("click", (e) => { if (e.currentTarget.dataset.value) window.location.href = "tel:" + e.currentTarget.dataset.value.replace(/\s/g, ""); });
   document.getElementById("modalPoste").addEventListener("change", (e) => saveModalField("poste", e.target.value));
   document.getElementById("modalTaille").addEventListener("change", (e) => saveModalField("taille", e.target.value ? parseInt(e.target.value, 10) : null));
   document.getElementById("modalJoueClub").addEventListener("change", (e) => saveModalField("joueClub", e.target.value));
@@ -830,18 +828,25 @@ function openPlayerModal(pk) {
 }
 
 function renderModalContact(p) {
-  const card = document.getElementById("modalContactCard");
-  const rows = document.getElementById("modalContactRows");
-  const parts = contactSummary(p);
-  if (!parts.length) { card.style.display = "none"; rows.innerHTML = ""; return; }
-  card.style.display = "block";
-  rows.innerHTML = parts.map((x) => `
-    <a href="${x.href}" class="contact-row">
-      <span class="contact-row-icon">${x.icon}</span>
-      <span class="contact-row-label">${escapeHtml(x.label)}</span>
-      <span class="contact-row-value">${escapeHtml(x.value)}</span>
-    </a>
-  `).join("");
+  document.getElementById("modalEmailPro").value = p.email || "";
+  document.getElementById("modalEmailPerso").value = p.emailPerso || "";
+  document.getElementById("modalTelephone").value = p.telephone || "";
+  updateContactActionLinks();
+}
+
+function updateContactActionLinks() {
+  const emailPro = document.getElementById("modalEmailPro").value.trim();
+  const emailPerso = document.getElementById("modalEmailPerso").value.trim();
+  const tel = document.getElementById("modalTelephone").value.trim();
+  const emailProBtn = document.getElementById("modalEmailProAction");
+  const emailPersoBtn = document.getElementById("modalEmailPersoAction");
+  const telBtn = document.getElementById("modalTelephoneAction");
+  emailProBtn.disabled = !emailPro;
+  emailPersoBtn.disabled = !emailPerso;
+  telBtn.disabled = !tel;
+  emailProBtn.dataset.value = emailPro;
+  emailPersoBtn.dataset.value = emailPerso;
+  telBtn.dataset.value = tel;
 }
 
 function closePlayerModal() {
