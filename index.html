@@ -112,6 +112,8 @@ textarea{ width:100%; resize:vertical; min-height:50px; }
 .btn.danger{ background: var(--red-out); color:#fff; }
 .btn.small{ padding:5px 10px; font-size:0.78rem; }
 .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+.btn[aria-disabled="true"]{ opacity:0.4; pointer-events:none; }
+a.btn{ text-decoration:none; display:inline-flex; align-items:center; }
 
 table{ width:100%; border-collapse:collapse; font-size:0.88rem; }
 th{ text-align:left; color:var(--ink-dim); font-weight:600; font-size:0.78rem; text-transform:none;
@@ -267,6 +269,7 @@ footer.app-footer{
     <button data-view="eval">📋 Évaluation</button>
     <button data-view="teams">🏆 Équipes</button>
     <button data-view="selection">🎯 Sélection</button>
+    <button data-view="comm">📲 WhatsApp &amp; Emails</button>
     <button data-view="export">⬇️ Export</button>
   </nav>
 </header>
@@ -274,7 +277,7 @@ footer.app-footer{
 <main>
 
   <!-- APPEL VIEW -->
-  <div class="view active" id="view-appel">
+  <div class="view" id="view-appel">
     <div class="card">
       <div class="group-picker" id="appelGroupPicker"></div>
       <div class="flex-between" style="margin-bottom:12px;">
@@ -393,6 +396,87 @@ footer.app-footer{
     </div>
   </div>
 
+  <!-- COMMUNICATION VIEW (WhatsApp + emails) -->
+  <div class="view" id="view-comm">
+    <div class="card">
+      <h2>Réglages par équipe</h2>
+      <p class="muted">À remplir une fois par équipe : le lien d'invitation du groupe WhatsApp déjà créé, et le créneau d'entraînement attribué. Synchronisé entre les deux entraîneurs.</p>
+      <div class="field-row" style="grid-template-columns:1fr;">
+        <div>
+          <label>Équipe 1 — Lien d'invitation WhatsApp</label>
+          <input type="text" id="whatsappLink1" style="width:100%;" placeholder="https://chat.whatsapp.com/...">
+        </div>
+      </div>
+      <div class="field-row" style="grid-template-columns:1fr; margin-top:-4px;">
+        <div>
+          <label>Équipe 1 — Créneau d'entraînement attribué</label>
+          <input type="text" id="teamSchedule1" style="width:100%;" placeholder="Ex : Mardi 18h-19h30, gymnase de Nanterre">
+        </div>
+      </div>
+      <hr class="sep">
+      <div class="field-row" style="grid-template-columns:1fr;">
+        <div>
+          <label>Équipe 2 — Lien d'invitation WhatsApp</label>
+          <input type="text" id="whatsappLink2" style="width:100%;" placeholder="https://chat.whatsapp.com/...">
+        </div>
+      </div>
+      <div class="field-row" style="grid-template-columns:1fr; margin-top:-4px;">
+        <div>
+          <label>Équipe 2 — Créneau d'entraînement attribué</label>
+          <input type="text" id="teamSchedule2" style="width:100%;" placeholder="Ex : Mardi 18h-19h30, gymnase de Nanterre">
+        </div>
+      </div>
+      <hr class="sep">
+      <div class="field-row" style="grid-template-columns:1fr;">
+        <div>
+          <label>Équipe 3 — Lien d'invitation WhatsApp</label>
+          <input type="text" id="whatsappLink3" style="width:100%;" placeholder="https://chat.whatsapp.com/...">
+        </div>
+      </div>
+      <div class="field-row" style="grid-template-columns:1fr; margin-top:-4px;">
+        <div>
+          <label>Équipe 3 — Créneau d'entraînement attribué</label>
+          <input type="text" id="teamSchedule3" style="width:100%;" placeholder="Ex : Mardi 18h-19h30, gymnase de Nanterre">
+        </div>
+      </div>
+      <button class="btn" id="saveTeamSettingsBtn" style="margin-top:10px;">💾 Enregistrer les réglages</button>
+    </div>
+
+    <div class="card">
+      <h2>Email d'invitation — Équipe 1</h2>
+      <p class="muted" id="commCount1"></p>
+      <textarea id="commPreview1" readonly style="width:100%; min-height:170px; font-family:var(--font-body);"></textarea>
+      <div class="photo-actions" style="justify-content:flex-start; margin-top:10px;">
+        <button class="btn ghost small" id="commCopyEmails1">📋 Copier les emails</button>
+        <button class="btn ghost small" id="commCopyMsg1">📋 Copier le message</button>
+        <a class="btn small" id="commMailto1" href="#">✉️ Ouvrir dans ma messagerie</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Email d'invitation — Équipe 2</h2>
+      <p class="muted" id="commCount2"></p>
+      <textarea id="commPreview2" readonly style="width:100%; min-height:170px; font-family:var(--font-body);"></textarea>
+      <div class="photo-actions" style="justify-content:flex-start; margin-top:10px;">
+        <button class="btn ghost small" id="commCopyEmails2">📋 Copier les emails</button>
+        <button class="btn ghost small" id="commCopyMsg2">📋 Copier le message</button>
+        <a class="btn small" id="commMailto2" href="#">✉️ Ouvrir dans ma messagerie</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Email d'invitation — Équipe 3</h2>
+      <p class="muted" id="commCount3"></p>
+      <textarea id="commPreview3" readonly style="width:100%; min-height:170px; font-family:var(--font-body);"></textarea>
+      <div class="photo-actions" style="justify-content:flex-start; margin-top:10px;">
+        <button class="btn ghost small" id="commCopyEmails3">📋 Copier les emails</button>
+        <button class="btn ghost small" id="commCopyMsg3">📋 Copier le message</button>
+        <a class="btn small" id="commMailto3" href="#">✉️ Ouvrir dans ma messagerie</a>
+      </div>
+      <p class="muted" style="margin-top:10px;">💡 Le bouton « Ouvrir dans ma messagerie » place tous les destinataires en copie cachée (Cci). Si l'équipe est nombreuse, certains clients mail limitent la longueur du lien : utilisez plutôt « Copier les emails » + « Copier le message » et collez-les vous-même dans un nouveau mail en Cci.</p>
+    </div>
+  </div>
+
   <!-- EXPORT VIEW -->
   <div class="view" id="view-export">
     <div class="card">
@@ -404,6 +488,11 @@ footer.app-footer{
       <p class="muted">À utiliser une seule fois, uniquement si la base Firestore est vide.</p>
       <button class="btn ghost" id="seedBtn">Importer les 71 étudiants du fichier FFSU</button>
       <p id="seedStatus" class="muted"></p>
+      <hr class="sep">
+      <h3>Compléter les coordonnées des étudiants sélectionnés</h3>
+      <p class="muted">Ajoute l'email personnel et le téléphone (fichier des étudiants retenus) sur les fiches déjà existantes, sans rien écraser d'autre. À relancer si la liste des sélectionnés est mise à jour.</p>
+      <button class="btn ghost" id="importContactsBtn">Importer emails perso / téléphones des sélectionnés</button>
+      <p id="importContactsStatus" class="muted"></p>
       <hr class="sep">
       <h3>Remettre à zéro toutes les évaluations</h3>
       <p class="muted">Efface l'appel, les groupes personnalisés, le poste, le club, la taille, les observables, les notes et les équipes — pour <b>tous les étudiants</b>. Les photos individuelles sont conservées. La liste des étudiants importés reste intacte, pas besoin de la réimporter.</p>
@@ -425,6 +514,7 @@ footer.app-footer{
         <div>
           <h2 id="modalName" style="margin:0;">—</h2>
           <p class="muted" id="modalMeta"></p>
+          <p class="muted" id="modalContact" style="margin-top:4px;"></p>
         </div>
       </div>
       <button class="close" id="modalClose">×</button>
@@ -581,6 +671,7 @@ footer.app-footer{
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 
 <script src="students-data.js"></script>
+<script src="contacts-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
