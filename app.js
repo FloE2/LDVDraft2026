@@ -426,7 +426,6 @@ function renderAppelView() {
       </td>
       <td>
         <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Fiche</button>
-        <button class="btn ghost small contactBtn" data-pk="${p.pk}" title="Voir email / téléphone">📇</button>
         <button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>
       </td>
     `;
@@ -471,9 +470,6 @@ function renderAppelView() {
   });
   tbody.querySelectorAll(".deleteStudentBtn").forEach((btn) => {
     btn.addEventListener("click", () => deleteStudent(btn.dataset.pk));
-  });
-  tbody.querySelectorAll(".contactBtn").forEach((btn) => {
-    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleContactPopover(btn, btn.dataset.pk); });
   });
 }
 
@@ -596,8 +592,8 @@ function deleteStudentPhoto(pk) {
 
 function contactSummary(p) {
   const parts = [];
-  if (p.email) parts.push({ icon: "✉️", label: p.email, href: "mailto:" + p.email });
-  if (p.emailPerso) parts.push({ icon: "✉️", label: p.emailPerso + " (perso)", href: "mailto:" + p.emailPerso });
+  if (p.email) parts.push({ icon: "✉️", label: "Pro : " + p.email, href: "mailto:" + p.email });
+  if (p.emailPerso) parts.push({ icon: "✉️", label: "Perso : " + p.emailPerso, href: "mailto:" + p.emailPerso });
   if (p.telephone) parts.push({ icon: "📞", label: p.telephone, href: "tel:" + p.telephone.replace(/\s/g, "") });
   return parts;
 }
@@ -739,15 +735,12 @@ function renderEvalView() {
       <td>${renderStarsReadonly(p.evalRapide || 0)}</td>
       <td>${renderStarsReadonly(computeAvgNote(p.crit))}</td>
       <td>${statusPill(p)}</td>
-      <td><button class="btn ghost small contactBtn" data-pk="${p.pk}" title="Voir email / téléphone">📇</button> <button class="btn small openModalBtn" data-pk="${p.pk}">Évaluer</button></td>
+      <td><button class="btn small openModalBtn" data-pk="${p.pk}">Évaluer</button></td>
     `;
     tbody.appendChild(tr);
   });
   tbody.querySelectorAll(".openModalBtn").forEach((btn) => {
     btn.addEventListener("click", () => openPlayerModal(btn.dataset.pk));
-  });
-  tbody.querySelectorAll(".contactBtn").forEach((btn) => {
-    btn.addEventListener("click", (e) => { e.stopPropagation(); toggleContactPopover(btn, btn.dataset.pk); });
   });
 }
 
