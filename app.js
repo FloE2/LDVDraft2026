@@ -209,29 +209,62 @@ document.getElementById("seedBtn").addEventListener("click", async () => {
   }
 });
 
+function isPlaceholderPhone(digits) {
+  // Certains numéros du fichier FFSU d'origine sont visiblement factices (ex: "33700000000")
+  return digits.length >= 11 && /0{6,}$/.test(digits);
+}
+
+function formatFrenchMobile(raw) {
+  if (!raw) return "";
+  const trimmed = String(raw).trim();
+  if (!trimmed) return "";
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits || isPlaceholderPhone(digits)) return "";
+  let d = digits;
+  if (d.length === 9 && d[0] !== "0") d = "0" + d; // ex: "617856500" -> "0617856500"
+  if (d.length === 10 && d.startsWith("0")) return d.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
+  return trimmed; // déjà formaté (espaces) ou international : on garde tel quel
+}
+
 document.getElementById("importContactsBtn").addEventListener("click", async () => {
   const status = document.getElementById("importContactsStatus");
-  if (typeof FFSU_CONTACTS === "undefined") {
-    status.textContent = "Fichier contacts-data.js introuvable.";
-    return;
-  }
   status.textContent = "Import en cours...";
-  let n = 0, skipped = 0;
+
+  // Coordonnées vérifiées des étudiants sélectionnés (fichier contacts-data.js) — prioritaires
+  const contactsByPk = {};
+  if (typeof FFSU_CONTACTS !== "undefined") {
+    FFSU_CONTACTS.forEach((c) => { contactsByPk[String(c.pk)] = c; });
+  }
+  // Téléphones déjà présents dans le fichier roster d'origine (students-data.js) — utilisés en repli
+  const rosterTelByPk = {};
+  if (typeof FFSU_STUDENTS !== "undefined") {
+    FFSU_STUDENTS.forEach((s) => {
+      const tel = formatFrenchMobile(s.tel);
+      if (tel) rosterTelByPk[String(s.pk)] = tel;
+    });
+  }
+
+  let n = 0;
   const updates = [];
-  FFSU_CONTACTS.forEach((c) => {
-    const pk = String(c.pk);
-    if (!players[pk]) { skipped++; return; }
+  Object.keys(players).forEach((pk) => {
+    const p = players[pk];
     const patch = {};
-    if (c.emailPerso) patch.emailPerso = c.emailPerso;
-    if (c.telephone) patch.telephone = c.telephone;
+    if (!p.emailPerso && contactsByPk[pk] && contactsByPk[pk].emailPerso) {
+      patch.emailPerso = contactsByPk[pk].emailPerso;
+    }
+    if (!p.telephone) {
+      const tel = (contactsByPk[pk] && contactsByPk[pk].telephone) || rosterTelByPk[pk];
+      if (tel) patch.telephone = tel;
+    }
     if (Object.keys(patch).length === 0) return;
     updates.push(updatePlayer(pk, patch));
     n++;
   });
   await Promise.all(updates);
-  status.textContent = `${n} fiche(s) complétée(s) avec email perso / téléphone.` +
-    (skipped ? ` (${skipped} non trouvé(s) dans la base — importez d'abord les 71 étudiants.)` : "");
-  showToast(`${n} contact(s) mis à jour`);
+  status.textContent = n
+    ? `${n} fiche(s) complétée(s) avec email perso et/ou téléphone.`
+    : "Rien à compléter (toutes les coordonnées disponibles sont déjà enregistrées).";
+  showToast(n ? `${n} fiche(s) complétée(s)` : "Aucune nouvelle coordonnée à ajouter");
 });
 
 /* ---------------- Tabs ---------------- */
