@@ -23,6 +23,13 @@ const BASE_CRITERES = [
 ];
 let customCriteria = []; // [[key,label], ...] added on the fly, synced via Firestore
 
+// Mode consultation (lecture seule) : activé via ?readonly=1 dans l'URL.
+// Les données restent synchronisées en direct (même Firestore), mais toute
+// écriture est bloquée, à la fois côté UI (champs désactivés) et côté code
+// (garde-fou dans updatePlayer et les autres fonctions d'écriture).
+const READ_ONLY = new URLSearchParams(window.location.search).get("readonly") === "1";
+function ro(extra) { return READ_ONLY ? ("disabled " + (extra || "")) : (extra || ""); }
+
 function getAllCriteria() { return BASE_CRITERES.concat(customCriteria); }
 
 function slugify(s) {
@@ -56,6 +63,11 @@ function loadLocal(key) { try { return JSON.parse(localStorage.getItem(key)); } 
 function saveLocal(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 function boot() {
+  if (READ_ONLY) {
+    // Lien de consultation : pas besoin de saisir un nom, on entre directement.
+    initFirebase(FIREBASE_CONFIG, "Consultation");
+    return;
+  }
   const coach = loadLocal("ffsu_coachName");
   if (!coach) {
     document.getElementById("setupView").style.display = "block";
@@ -113,6 +125,52 @@ function initFirebase(cfg, coachName) {
 
   listenPlayers();
   listenCustomCriteria();
+
+  if (READ_ONLY) applyReadOnlyUI();
+}
+
+/* ---------------- Mode consultation (lecture seule) ---------------- */
+
+function applyReadOnlyUI() {
+  document.body.classList.add("read-only-mode");
+
+  // Bandeau bien visible en haut de page
+  const banner = document.createElement("div");
+  banner.textContent = "👁 Mode consultation — lecture seule, aucune modification possible";
+  banner.style.cssText = "background:#2e6eb6;color:#fff;text-align:center;font-weight:700;font-size:0.85rem;padding:7px 10px;";
+  document.body.insertBefore(banner, document.body.firstChild);
+
+  document.getElementById("coachNameDisplay").textContent = "Consultation (lecture seule)";
+
+  // On masque tout ce qui sert uniquement à modifier des données
+  const idsToHide = [
+    "resetConfigBtn", "addStudentBtn", "seedBtn", "resetAllBtn", "addCriterionBtn"
+  ];
+  idsToHide.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+
+  // Un style global qui neutralise les contrôles générés dynamiquement
+  const style = document.createElement("style");
+  style.textContent = `
+    .read-only-mode .presentChk, .read-only-mode .absentChk, .read-only-mode .ancienChk,
+    .read-only-mode .moveGroupSel, .read-only-mode .selEquipeSel,
+    .read-only-mode .team-col select, .read-only-mode #poolList select,
+    .read-only-mode .deleteStudentBtn, .read-only-mode .takePhotoBtn, .read-only-mode .deletePhotoRowBtn,
+    .read-only-mode #resetPlayerBtn, .read-only-mode #validatePlayerBtn, .read-only-mode #deletePlayerBtn,
+    .read-only-mode #elimNiveauChk, .read-only-mode #elimEspritChk,
+    .read-only-mode #modalPoste, .read-only-mode #modalTaille, .read-only-mode #modalJoueClub,
+    .read-only-mode #modalNiveauClub, .read-only-mode #modalNotes, .read-only-mode #modalEquipe,
+    .read-only-mode #modalQuickStars, .read-only-mode #critGrid .stars {
+      pointer-events: none !important; opacity: 0.55 !important;
+    }
+    .read-only-mode .deleteStudentBtn, .read-only-mode #resetPlayerBtn,
+    .read-only-mode #validatePlayerBtn, .read-only-mode #deletePlayerBtn { display:none !important; }
+    .read-only-mode #photoCapturePanel, .read-only-mode #photosPeopleList .takePhotoBtn,
+    .read-only-mode #photosPeopleList .deletePhotoRowBtn { display:none !important; }
+  `;
+  document.head.appendChild(style);
 }
 
 /* ---------------- Firestore listeners ---------------- */
@@ -137,6 +195,7 @@ function listenCustomCriteria() {
 }
 
 function addCustomCriterion() {
+  if (READ_ONLY) { showToast("Mode consultation : modification désactivée"); return; }
   const label = prompt("Nom du nouveau critère à évaluer :");
   if (!label || !label.trim()) return;
   const key = slugify(label.trim());
@@ -150,6 +209,7 @@ function addCustomCriterion() {
 function coachName() { return loadLocal("ffsu_coachName") || "?"; }
 
 function updatePlayer(pk, patch) {
+  if (READ_ONLY) { showToast("Mode consultation : modification désactivée"); return; }
   patch.lastEditBy = coachName();
   patch.lastEditAt = new Date().toISOString();
   db.collection("players").doc(String(pk)).set(patch, { merge: true })
@@ -159,6 +219,7 @@ function updatePlayer(pk, patch) {
 /* ---------------- Seed initial data ---------------- */
 
 document.getElementById("seedBtn").addEventListener("click", async () => {
+  if (READ_ONLY) return;
   const status = document.getElementById("seedStatus");
   const existing = await db.collection("players").limit(1).get();
   if (!existing.empty) {
@@ -302,6 +363,7 @@ function closeAddStudentModal() {
 }
 
 function confirmAddStudent() {
+  if (READ_ONLY) return;
   const nom = document.getElementById("newStudentNom").value.trim().toUpperCase();
   const prenom = document.getElementById("newStudentPrenom").value.trim();
   const formation = document.getElementById("newStudentFormation").value.trim();
@@ -353,22 +415,22 @@ function renderAppelView() {
     const tr = document.createElement("tr");
     tr.className = "player-row" + (p.statut === "absent" ? " eliminated-esprit" : p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
     tr.innerHTML = `
-      <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk"></td>
-      <td><input type="checkbox" ${p.statut === "absent" ? "checked" : ""} data-pk="${p.pk}" class="absentChk"></td>
-      <td><input type="checkbox" ${p.ancien ? "checked" : ""} data-pk="${p.pk}" class="ancienChk" title="Déjà membre confirmé de l'équipe"></td>
+      <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk" ${ro()}></td>
+      <td><input type="checkbox" ${p.statut === "absent" ? "checked" : ""} data-pk="${p.pk}" class="absentChk" ${ro()}></td>
+      <td><input type="checkbox" ${p.ancien ? "checked" : ""} data-pk="${p.pk}" class="ancienChk" title="Déjà membre confirmé de l'équipe" ${ro()}></td>
       <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)}</td>
       <td>${escapeHtml(p.prenom)}</td>
       <td class="muted">${escapeHtml(p.formation || "")}</td>
       <td>${statusPill(p)}</td>
       <td>
-        <select class="moveGroupSel" data-pk="${p.pk}">
+        <select class="moveGroupSel" data-pk="${p.pk}" ${ro()}>
           ${GROUPS.map((gg) => `<option value="${gg}" ${gg === p.groupe ? "selected" : ""}>${gg}</option>`).join("")}
         </select>
       </td>
       <td>
         <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Fiche</button>
-        <button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>
+        ${READ_ONLY ? "" : `<button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>`}
       </td>
     `;
     tbody.appendChild(tr);
@@ -416,6 +478,7 @@ function renderAppelView() {
 }
 
 function deleteStudent(pk) {
+  if (READ_ONLY) return;
   const p = players[pk];
   if (!p) return;
   if (!confirm(`Supprimer définitivement ${p.nom} ${p.prenom} de la sélection ? Cette action est irréversible (fiche, photo et évaluation seront perdues).`)) return;
@@ -438,6 +501,7 @@ function attachPhotoHandlers() {
 }
 
 function openCapturePanel(pk) {
+  if (READ_ONLY) return;
   currentPhotoTargetPk = pk;
   const p = players[pk];
   if (!p) return;
@@ -526,6 +590,7 @@ function savePhotoForStudent(pk, dataUrl) {
 }
 
 function deleteStudentPhoto(pk) {
+  if (READ_ONLY) return;
   const p = players[pk];
   if (!p || !confirm(`Supprimer la photo de ${p.nom} ${p.prenom} ?`)) return;
   updatePlayer(pk, { photoBase64: null });
@@ -700,6 +765,7 @@ function playerResetPatch(p) {
 }
 
 function resetCurrentPlayer() {
+  if (READ_ONLY) return;
   const p = players[currentModalPk];
   if (!p) return;
   if (!confirm(`Réinitialiser complètement la fiche de ${p.nom} ${p.prenom} ? (statut, poste, club, taille, observables, note, équipe et groupe repartent à zéro — la photo est conservée)`)) return;
@@ -709,6 +775,7 @@ function resetCurrentPlayer() {
 }
 
 function onElimChange() {
+  if (READ_ONLY) return;
   const pk = currentModalPk;
   const niveauChk = document.getElementById("elimNiveauChk");
   const espritChk = document.getElementById("elimEspritChk");
@@ -750,6 +817,10 @@ function openPlayerModal(pk) {
   document.getElementById("modalNiveauClub").value = p.niveauClub || "";
   document.getElementById("modalNotes").value = p.notes || "";
   document.getElementById("modalEquipe").value = p.equipe || "";
+  if (READ_ONLY) {
+    ["modalPoste","modalTaille","modalJoueClub","modalNiveauClub","modalNotes","modalEquipe",
+     "elimNiveauChk","elimEspritChk"].forEach((id) => { document.getElementById(id).disabled = true; });
+  }
   refreshElimUI();
   renderCritStars(p);
   renderQuickStars(p);
@@ -802,11 +873,13 @@ function drawStars(container, value, onSet) {
     const s = document.createElement("span");
     s.textContent = "★";
     if (i <= value) s.classList.add("on");
-    s.addEventListener("click", () => {
-      const newVal = i === value ? 0 : i;
-      drawStars(container, newVal, onSet); // redraw immediately, no waiting on network
-      onSet(newVal);
-    });
+    if (!READ_ONLY) {
+      s.addEventListener("click", () => {
+        const newVal = i === value ? 0 : i;
+        drawStars(container, newVal, onSet); // redraw immediately, no waiting on network
+        onSet(newVal);
+      });
+    }
     container.appendChild(s);
   }
 }
@@ -831,7 +904,7 @@ function renderTeamsView() {
       const chip = document.createElement("div");
       chip.className = "player-chip";
       chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""}</span>
-        <select data-pk="${p.pk}">
+        <select data-pk="${p.pk}" ${ro()}>
           <option value="">Retirer</option>
           <option value="1" ${teamId==="1"?"selected":""}>Éq.1</option>
           <option value="2" ${teamId==="2"?"selected":""}>Éq.2</option>
@@ -856,7 +929,7 @@ function renderTeamsView() {
     const chip = document.createElement("div");
     chip.className = "player-chip";
     chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""} ${renderStarsReadonly(computeAvgNote(p.crit) || p.evalRapide || 0)}</span>
-      <select data-pk="${p.pk}">
+      <select data-pk="${p.pk}" ${ro()}>
         <option value="">Non affecté</option>
         <option value="1">Éq.1</option>
         <option value="2">Éq.2</option>
@@ -911,7 +984,7 @@ function renderSelectionView() {
       <td>${renderStarsReadonly(computeAvgNote(p.crit) || p.evalRapide || 0)}</td>
       <td>${escapeHtml(p.groupe)}</td>
       <td>
-        <select class="selEquipeSel" data-pk="${p.pk}">
+        <select class="selEquipeSel" data-pk="${p.pk}" ${ro()}>
           <option value="" ${!p.equipe ? "selected" : ""}>Non affecté</option>
           <option value="1" ${p.equipe==="1"?"selected":""}>Équipe 1</option>
           <option value="2" ${p.equipe==="2"?"selected":""}>Équipe 2</option>
@@ -954,6 +1027,7 @@ function attachExportHandlers() {
 }
 
 async function resetAllPlayers() {
+  if (READ_ONLY) return;
   const status = document.getElementById("resetAllStatus");
   const all = Object.values(players);
   if (!all.length) { status.textContent = "Aucun étudiant à réinitialiser."; return; }
