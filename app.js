@@ -23,13 +23,6 @@ const BASE_CRITERES = [
 ];
 let customCriteria = []; // [[key,label], ...] added on the fly, synced via Firestore
 
-// Mode consultation (lecture seule) : activé via ?readonly=1 dans l'URL.
-// Les données restent synchronisées en direct (même Firestore), mais toute
-// écriture est bloquée, à la fois côté UI (champs désactivés) et côté code
-// (garde-fou dans updatePlayer et les autres fonctions d'écriture).
-const READ_ONLY = new URLSearchParams(window.location.search).get("readonly") === "1";
-function ro(extra) { return READ_ONLY ? ("disabled " + (extra || "")) : (extra || ""); }
-
 function getAllCriteria() { return BASE_CRITERES.concat(customCriteria); }
 
 function slugify(s) {
@@ -56,6 +49,7 @@ let players = {};       // pk -> player doc data
 let currentGroup = { appel: "A", photos: "A", eval: "A" };
 let currentModalPk = null;
 let camStream = null;
+let teamSettings = { whatsappLinks: {}, teamSchedules: {} }; // meta/info : liens WhatsApp + créneau par équipe (1,2,3)
 
 /* ---------------- Setup / boot ---------------- */
 
@@ -63,11 +57,6 @@ function loadLocal(key) { try { return JSON.parse(localStorage.getItem(key)); } 
 function saveLocal(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 function boot() {
-  if (READ_ONLY) {
-    // Lien de consultation : pas besoin de saisir un nom, on entre directement.
-    initFirebase(FIREBASE_CONFIG, "Consultation");
-    return;
-  }
   const coach = loadLocal("ffsu_coachName");
   if (!coach) {
     document.getElementById("setupView").style.display = "block";
@@ -122,55 +111,11 @@ function initFirebase(cfg, coachName) {
   attachSelectionHandlers();
   attachExportHandlers();
   attachModalHandlers();
+  attachCommHandlers();
 
   listenPlayers();
   listenCustomCriteria();
-
-  if (READ_ONLY) applyReadOnlyUI();
-}
-
-/* ---------------- Mode consultation (lecture seule) ---------------- */
-
-function applyReadOnlyUI() {
-  document.body.classList.add("read-only-mode");
-
-  // Bandeau bien visible en haut de page
-  const banner = document.createElement("div");
-  banner.textContent = "👁 Mode consultation — lecture seule, aucune modification possible";
-  banner.style.cssText = "background:#2e6eb6;color:#fff;text-align:center;font-weight:700;font-size:0.85rem;padding:7px 10px;";
-  document.body.insertBefore(banner, document.body.firstChild);
-
-  document.getElementById("coachNameDisplay").textContent = "Consultation (lecture seule)";
-
-  // On masque tout ce qui sert uniquement à modifier des données
-  const idsToHide = [
-    "resetConfigBtn", "addStudentBtn", "seedBtn", "resetAllBtn", "addCriterionBtn"
-  ];
-  idsToHide.forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "none";
-  });
-
-  // Un style global qui neutralise les contrôles générés dynamiquement
-  const style = document.createElement("style");
-  style.textContent = `
-    .read-only-mode .presentChk, .read-only-mode .absentChk, .read-only-mode .ancienChk,
-    .read-only-mode .moveGroupSel, .read-only-mode .selEquipeSel,
-    .read-only-mode .team-col select, .read-only-mode #poolList select,
-    .read-only-mode .deleteStudentBtn, .read-only-mode .takePhotoBtn, .read-only-mode .deletePhotoRowBtn,
-    .read-only-mode #resetPlayerBtn, .read-only-mode #validatePlayerBtn, .read-only-mode #deletePlayerBtn,
-    .read-only-mode #elimNiveauChk, .read-only-mode #elimEspritChk,
-    .read-only-mode #modalPoste, .read-only-mode #modalTaille, .read-only-mode #modalJoueClub,
-    .read-only-mode #modalNiveauClub, .read-only-mode #modalNotes, .read-only-mode #modalEquipe,
-    .read-only-mode #modalQuickStars, .read-only-mode #critGrid .stars {
-      pointer-events: none !important; opacity: 0.55 !important;
-    }
-    .read-only-mode .deleteStudentBtn, .read-only-mode #resetPlayerBtn,
-    .read-only-mode #validatePlayerBtn, .read-only-mode #deletePlayerBtn { display:none !important; }
-    .read-only-mode #photoCapturePanel, .read-only-mode #photosPeopleList .takePhotoBtn,
-    .read-only-mode #photosPeopleList .deletePhotoRowBtn { display:none !important; }
-  `;
-  document.head.appendChild(style);
+  listenTeamSettings();
 }
 
 /* ---------------- Firestore listeners ---------------- */
@@ -194,8 +139,18 @@ function listenCustomCriteria() {
   });
 }
 
+function listenTeamSettings() {
+  db.collection("meta").doc("info").onSnapshot((doc) => {
+    const data = (doc.exists && doc.data()) || {};
+    teamSettings = {
+      whatsappLinks: data.whatsappLinks || {},
+      teamSchedules: data.teamSchedules || {}
+    };
+    renderCommView();
+  });
+}
+
 function addCustomCriterion() {
-  if (READ_ONLY) { showToast("Mode consultation : modification désactivée"); return; }
   const label = prompt("Nom du nouveau critère à évaluer :");
   if (!label || !label.trim()) return;
   const key = slugify(label.trim());
@@ -209,7 +164,6 @@ function addCustomCriterion() {
 function coachName() { return loadLocal("ffsu_coachName") || "?"; }
 
 function updatePlayer(pk, patch) {
-  if (READ_ONLY) { showToast("Mode consultation : modification désactivée"); return; }
   patch.lastEditBy = coachName();
   patch.lastEditAt = new Date().toISOString();
   db.collection("players").doc(String(pk)).set(patch, { merge: true })
@@ -219,7 +173,6 @@ function updatePlayer(pk, patch) {
 /* ---------------- Seed initial data ---------------- */
 
 document.getElementById("seedBtn").addEventListener("click", async () => {
-  if (READ_ONLY) return;
   const status = document.getElementById("seedStatus");
   const existing = await db.collection("players").limit(1).get();
   if (!existing.empty) {
@@ -270,6 +223,31 @@ document.getElementById("seedBtn").addEventListener("click", async () => {
   }
 });
 
+document.getElementById("importContactsBtn").addEventListener("click", async () => {
+  const status = document.getElementById("importContactsStatus");
+  if (typeof FFSU_CONTACTS === "undefined") {
+    status.textContent = "Fichier contacts-data.js introuvable.";
+    return;
+  }
+  status.textContent = "Import en cours...";
+  let n = 0, skipped = 0;
+  const updates = [];
+  FFSU_CONTACTS.forEach((c) => {
+    const pk = String(c.pk);
+    if (!players[pk]) { skipped++; return; }
+    const patch = {};
+    if (c.emailPerso) patch.emailPerso = c.emailPerso;
+    if (c.telephone) patch.telephone = c.telephone;
+    if (Object.keys(patch).length === 0) return;
+    updates.push(updatePlayer(pk, patch));
+    n++;
+  });
+  await Promise.all(updates);
+  status.textContent = `${n} fiche(s) complétée(s) avec email perso / téléphone.` +
+    (skipped ? ` (${skipped} non trouvé(s) dans la base — importez d'abord les 71 étudiants.)` : "");
+  showToast(`${n} contact(s) mis à jour`);
+});
+
 /* ---------------- Tabs ---------------- */
 
 function attachTabNav() {
@@ -290,6 +268,7 @@ function renderAll() {
   renderEvalView();
   renderTeamsView();
   renderSelectionView();
+  renderCommView();
 }
 
 /* ---------------- Group pickers ---------------- */
@@ -363,7 +342,6 @@ function closeAddStudentModal() {
 }
 
 function confirmAddStudent() {
-  if (READ_ONLY) return;
   const nom = document.getElementById("newStudentNom").value.trim().toUpperCase();
   const prenom = document.getElementById("newStudentPrenom").value.trim();
   const formation = document.getElementById("newStudentFormation").value.trim();
@@ -415,22 +393,22 @@ function renderAppelView() {
     const tr = document.createElement("tr");
     tr.className = "player-row" + (p.statut === "absent" ? " eliminated-esprit" : p.statut === "elimine_niveau" ? " eliminated-niveau" : p.statut === "elimine_esprit" ? " eliminated-esprit" : "");
     tr.innerHTML = `
-      <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk" ${ro()}></td>
-      <td><input type="checkbox" ${p.statut === "absent" ? "checked" : ""} data-pk="${p.pk}" class="absentChk" ${ro()}></td>
-      <td><input type="checkbox" ${p.ancien ? "checked" : ""} data-pk="${p.pk}" class="ancienChk" title="Déjà membre confirmé de l'équipe" ${ro()}></td>
+      <td><input type="checkbox" ${p.present ? "checked" : ""} data-pk="${p.pk}" class="presentChk"></td>
+      <td><input type="checkbox" ${p.statut === "absent" ? "checked" : ""} data-pk="${p.pk}" class="absentChk"></td>
+      <td><input type="checkbox" ${p.ancien ? "checked" : ""} data-pk="${p.pk}" class="ancienChk" title="Déjà membre confirmé de l'équipe"></td>
       <td>${avatarHtml(p, 32)}</td>
       <td class="name">${escapeHtml(p.nom)}</td>
       <td>${escapeHtml(p.prenom)}</td>
       <td class="muted">${escapeHtml(p.formation || "")}</td>
       <td>${statusPill(p)}</td>
       <td>
-        <select class="moveGroupSel" data-pk="${p.pk}" ${ro()}>
+        <select class="moveGroupSel" data-pk="${p.pk}">
           ${GROUPS.map((gg) => `<option value="${gg}" ${gg === p.groupe ? "selected" : ""}>${gg}</option>`).join("")}
         </select>
       </td>
       <td>
         <button class="btn ghost small openModalBtn" data-pk="${p.pk}">Fiche</button>
-        ${READ_ONLY ? "" : `<button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>`}
+        <button class="btn danger small deleteStudentBtn" data-pk="${p.pk}" title="Supprimer cet étudiant">🗑</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -478,7 +456,6 @@ function renderAppelView() {
 }
 
 function deleteStudent(pk) {
-  if (READ_ONLY) return;
   const p = players[pk];
   if (!p) return;
   if (!confirm(`Supprimer définitivement ${p.nom} ${p.prenom} de la sélection ? Cette action est irréversible (fiche, photo et évaluation seront perdues).`)) return;
@@ -501,7 +478,6 @@ function attachPhotoHandlers() {
 }
 
 function openCapturePanel(pk) {
-  if (READ_ONLY) return;
   currentPhotoTargetPk = pk;
   const p = players[pk];
   if (!p) return;
@@ -590,7 +566,6 @@ function savePhotoForStudent(pk, dataUrl) {
 }
 
 function deleteStudentPhoto(pk) {
-  if (READ_ONLY) return;
   const p = players[pk];
   if (!p || !confirm(`Supprimer la photo de ${p.nom} ${p.prenom} ?`)) return;
   updatePlayer(pk, { photoBase64: null });
@@ -765,7 +740,6 @@ function playerResetPatch(p) {
 }
 
 function resetCurrentPlayer() {
-  if (READ_ONLY) return;
   const p = players[currentModalPk];
   if (!p) return;
   if (!confirm(`Réinitialiser complètement la fiche de ${p.nom} ${p.prenom} ? (statut, poste, club, taille, observables, note, équipe et groupe repartent à zéro — la photo est conservée)`)) return;
@@ -775,7 +749,6 @@ function resetCurrentPlayer() {
 }
 
 function onElimChange() {
-  if (READ_ONLY) return;
   const pk = currentModalPk;
   const niveauChk = document.getElementById("elimNiveauChk");
   const espritChk = document.getElementById("elimEspritChk");
@@ -811,16 +784,13 @@ function openPlayerModal(pk) {
   document.getElementById("modalAvatar").innerHTML = avatarHtml(p, 52);
   document.getElementById("modalMeta").textContent =
     `${p.formation || ""} · Groupe ${p.groupe}${p.numero != null ? " · N°" + p.numero : ""}`;
+  renderModalContact(p);
   document.getElementById("modalPoste").value = p.poste || "";
   document.getElementById("modalTaille").value = p.taille || "";
   document.getElementById("modalJoueClub").value = p.joueClub || "";
   document.getElementById("modalNiveauClub").value = p.niveauClub || "";
   document.getElementById("modalNotes").value = p.notes || "";
   document.getElementById("modalEquipe").value = p.equipe || "";
-  if (READ_ONLY) {
-    ["modalPoste","modalTaille","modalJoueClub","modalNiveauClub","modalNotes","modalEquipe",
-     "elimNiveauChk","elimEspritChk"].forEach((id) => { document.getElementById(id).disabled = true; });
-  }
   refreshElimUI();
   renderCritStars(p);
   renderQuickStars(p);
@@ -831,6 +801,15 @@ function openPlayerModal(pk) {
   const lastEdit = document.getElementById("modalLastEdit");
   lastEdit.textContent = p.lastEditBy ? `Dernière modif : ${p.lastEditBy} — ${formatDate(p.lastEditAt)}` : "";
   document.getElementById("playerModal").classList.add("open");
+}
+
+function renderModalContact(p) {
+  const el = document.getElementById("modalContact");
+  const parts = [];
+  if (p.email) parts.push(`<a href="mailto:${escapeHtml(p.email)}">✉️ ${escapeHtml(p.email)}</a>`);
+  if (p.emailPerso) parts.push(`<a href="mailto:${escapeHtml(p.emailPerso)}">✉️ ${escapeHtml(p.emailPerso)} (perso)</a>`);
+  if (p.telephone) parts.push(`<a href="tel:${escapeHtml(p.telephone.replace(/\s/g, ""))}">📞 ${escapeHtml(p.telephone)}</a>`);
+  el.innerHTML = parts.length ? parts.join(" &nbsp;·&nbsp; ") : `<span class="muted">Aucune coordonnée enregistrée</span>`;
 }
 
 function closePlayerModal() {
@@ -873,13 +852,11 @@ function drawStars(container, value, onSet) {
     const s = document.createElement("span");
     s.textContent = "★";
     if (i <= value) s.classList.add("on");
-    if (!READ_ONLY) {
-      s.addEventListener("click", () => {
-        const newVal = i === value ? 0 : i;
-        drawStars(container, newVal, onSet); // redraw immediately, no waiting on network
-        onSet(newVal);
-      });
-    }
+    s.addEventListener("click", () => {
+      const newVal = i === value ? 0 : i;
+      drawStars(container, newVal, onSet); // redraw immediately, no waiting on network
+      onSet(newVal);
+    });
     container.appendChild(s);
   }
 }
@@ -904,7 +881,7 @@ function renderTeamsView() {
       const chip = document.createElement("div");
       chip.className = "player-chip";
       chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""}</span>
-        <select data-pk="${p.pk}" ${ro()}>
+        <select data-pk="${p.pk}">
           <option value="">Retirer</option>
           <option value="1" ${teamId==="1"?"selected":""}>Éq.1</option>
           <option value="2" ${teamId==="2"?"selected":""}>Éq.2</option>
@@ -929,7 +906,7 @@ function renderTeamsView() {
     const chip = document.createElement("div");
     chip.className = "player-chip";
     chip.innerHTML = `<span>${escapeHtml(p.nom)} ${escapeHtml(p.prenom)}${p.poste ? " · " + escapeHtml(p.poste) : ""} ${renderStarsReadonly(computeAvgNote(p.crit) || p.evalRapide || 0)}</span>
-      <select data-pk="${p.pk}" ${ro()}>
+      <select data-pk="${p.pk}">
         <option value="">Non affecté</option>
         <option value="1">Éq.1</option>
         <option value="2">Éq.2</option>
@@ -943,6 +920,95 @@ function renderTeamsView() {
 
   document.getElementById("teamsStats").textContent =
     `${eligible.length} joueur(s) retenu(s) · ${pool.length} non affecté(s)`;
+}
+
+/* ================= COMMUNICATION / WHATSAPP VIEW ================= */
+
+function recipientEmail(p) { return p.email || p.emailPerso || ""; }
+
+function teamRecipients(teamId) {
+  return Object.values(players)
+    .filter((p) => p.equipe === teamId && (p.statut === "actif" || !p.statut))
+    .sort((a, b) => a.nom.localeCompare(b.nom));
+}
+
+function buildTeamMessage(teamId) {
+  const schedule = (teamSettings.teamSchedules && teamSettings.teamSchedules[teamId]) || "(créneau à préciser)";
+  const link = (teamSettings.whatsappLinks && teamSettings.whatsappLinks[teamId]) || "(lien du groupe WhatsApp à ajouter ci-dessus)";
+  return `Bonjour,
+
+Félicitations, tu as été sélectionné(e) pour l'Équipe ${teamId} de basket du Pôle Léonard de Vinci (FFSU) !
+
+📅 Ton créneau d'entraînement attribué : ${schedule}
+
+Merci de rejoindre dès que possible le groupe WhatsApp de l'équipe en cliquant sur ce lien (indispensable pour recevoir toutes les infos à venir) :
+${link}
+
+Sportivement,
+${coachName()}`;
+}
+
+function buildMailto(emails, teamId) {
+  const subject = encodeURIComponent(`Basket FFSU — Équipe ${teamId} : rejoins le groupe WhatsApp`);
+  const body = encodeURIComponent(buildTeamMessage(teamId));
+  const bcc = encodeURIComponent(emails.join(","));
+  return `mailto:?bcc=${bcc}&subject=${subject}&body=${body}`;
+}
+
+function attachCommHandlers() {
+  document.getElementById("saveTeamSettingsBtn").addEventListener("click", saveTeamSettings);
+  ["1", "2", "3"].forEach((teamId) => {
+    document.getElementById("commCopyEmails" + teamId).addEventListener("click", () => copyTeamEmails(teamId));
+    document.getElementById("commCopyMsg" + teamId).addEventListener("click", () => copyTeamMessage(teamId));
+  });
+}
+
+function saveTeamSettings() {
+  const whatsappLinks = {}, teamSchedules = {};
+  ["1", "2", "3"].forEach((teamId) => {
+    whatsappLinks[teamId] = document.getElementById("whatsappLink" + teamId).value.trim();
+    teamSchedules[teamId] = document.getElementById("teamSchedule" + teamId).value.trim();
+  });
+  db.collection("meta").doc("info").set({ whatsappLinks, teamSchedules }, { merge: true })
+    .then(() => showToast("Réglages des équipes enregistrés"))
+    .catch((e) => showToast("Erreur : " + e.message));
+}
+
+function copyTeamEmails(teamId) {
+  const emails = teamRecipients(teamId).map(recipientEmail).filter(Boolean);
+  if (!emails.length) { showToast("Aucun email disponible pour cette équipe"); return; }
+  navigator.clipboard.writeText(emails.join(", "))
+    .then(() => showToast(`${emails.length} email(s) copié(s)`))
+    .catch(() => showToast("Impossible de copier (autorisation presse-papier refusée)"));
+}
+
+function copyTeamMessage(teamId) {
+  navigator.clipboard.writeText(buildTeamMessage(teamId))
+    .then(() => showToast("Message copié"))
+    .catch(() => showToast("Impossible de copier (autorisation presse-papier refusée)"));
+}
+
+function renderCommView() {
+  const view = document.getElementById("view-comm");
+  if (!view || !view.classList.contains("active")) return;
+  ["1", "2", "3"].forEach((teamId) => {
+    const wsEl = document.getElementById("whatsappLink" + teamId);
+    const schEl = document.getElementById("teamSchedule" + teamId);
+    if (document.activeElement !== wsEl) wsEl.value = (teamSettings.whatsappLinks && teamSettings.whatsappLinks[teamId]) || "";
+    if (document.activeElement !== schEl) schEl.value = (teamSettings.teamSchedules && teamSettings.teamSchedules[teamId]) || "";
+
+    const recipients = teamRecipients(teamId);
+    const emails = recipients.map(recipientEmail).filter(Boolean);
+    const missing = recipients.length - emails.length;
+    document.getElementById("commCount" + teamId).textContent =
+      `${recipients.length} joueur(s) dans l'équipe ${teamId} · ${emails.length} email(s) disponible(s)` +
+      (missing ? ` · ${missing} sans email` : "");
+    document.getElementById("commPreview" + teamId).value = buildTeamMessage(teamId);
+    const mailtoBtn = document.getElementById("commMailto" + teamId);
+    mailtoBtn.href = buildMailto(emails, teamId);
+    if (!emails.length) mailtoBtn.setAttribute("aria-disabled", "true");
+    else mailtoBtn.removeAttribute("aria-disabled");
+  });
 }
 
 /* ================= SELECTION VIEW (suivi, tous groupes) ================= */
@@ -984,7 +1050,7 @@ function renderSelectionView() {
       <td>${renderStarsReadonly(computeAvgNote(p.crit) || p.evalRapide || 0)}</td>
       <td>${escapeHtml(p.groupe)}</td>
       <td>
-        <select class="selEquipeSel" data-pk="${p.pk}" ${ro()}>
+        <select class="selEquipeSel" data-pk="${p.pk}">
           <option value="" ${!p.equipe ? "selected" : ""}>Non affecté</option>
           <option value="1" ${p.equipe==="1"?"selected":""}>Équipe 1</option>
           <option value="2" ${p.equipe==="2"?"selected":""}>Équipe 2</option>
@@ -1027,7 +1093,6 @@ function attachExportHandlers() {
 }
 
 async function resetAllPlayers() {
-  if (READ_ONLY) return;
   const status = document.getElementById("resetAllStatus");
   const all = Object.values(players);
   if (!all.length) { status.textContent = "Aucun étudiant à réinitialiser."; return; }
@@ -1063,7 +1128,7 @@ async function resetAllPlayers() {
 }
 
 function exportCsv() {
-  const cols = ["pk","nom","prenom","formation","groupeOriginal","groupe","numero","statut","ancien",
+  const cols = ["pk","nom","prenom","formation","email","emailPerso","telephone","groupeOriginal","groupe","numero","statut","ancien",
     "poste","joueClub","niveauClub","taille","evalRapide","note","equipe","notes",
     ...getAllCriteria().map(c => "crit_" + c[0]), "lastEditBy","lastEditAt"];
   const rows = [cols.join(";")];
